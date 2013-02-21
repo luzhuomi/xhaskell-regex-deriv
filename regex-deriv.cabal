@@ -29,7 +29,6 @@ library
                          Text.Regex.Deriv.RE
                          Text.Regex.Deriv.Parse		
                          Text.Regex.Deriv.Translate
-                         -- Text.Regex.Deriv.Nfa			
                          Text.Regex.Deriv.Pretty
                          Text.Regex.Deriv.Dictionary
   Buildable:              True
