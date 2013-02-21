@@ -56,12 +56,12 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 > emptyCF = IM.empty
 
 > combineCF :: CarryForward -> CarryForward -> CarryForward
-> combineCF cf1 cf2 = IM.unionWith combineRange cf1 cf2
+> combineCF cf1 cf2 = {-# SCC "combineCF/unionWith" #-} IM.unionWith combineRange cf1 cf2
 
 
 > combineRange :: [Range] -> [Range] -> [Range]
 > combineRange rs1 rs2 = 
->    let rs = rs1 `seq` rs2 `seq` {-# SCC "combineRangeAcc" #-} combineRangeAcc [] rs1 rs2 
+>    let rs = rs1 `seq` rs2 `seq` {-# SCC "combineRange/combineRangeAcc" #-} combineRangeAcc [] rs1 rs2 
 >    in rs `seq` reverse rs
 
 > combineRangeAcc :: [Range] -> [Range] -> [Range] -> [Range]
