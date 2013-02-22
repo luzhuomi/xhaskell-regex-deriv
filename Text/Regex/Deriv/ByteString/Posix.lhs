@@ -141,13 +141,14 @@ The shapes of the input/output Pat and SBinder should be identical.
 >       ; (p'',f'') <- simpFix (PVar x w p')
 >       ; if (p'' == (PVar x w p')) 
 >         then return (PVar x w p', f')
->         else return (p'', \i -> (f'' i) . (f' i))
+>         else return (p'', \i sb -> let sb' = f' i sb
+>                                    in sb' `seq` (f'' i sb'))
 >       }
 > dPat0 (PE rs) l = 
 >    let pds = nub (concatMap (\r -> partDeriv r l) rs)
 >    in pds `seq` 
 >       if null pds then mzero
->       else return (PE pds, (\_ -> id) )
+>       else return (PE pds, (\_ sb -> sb) )
 > dPat0 (PStar p g) l = 
 >    do { (p', f) <- dPat0 p l        
 >       ; let emp = toSBinder p                     
@@ -173,7 +174,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >          in do { (p2'',f2'') <- simpFix p2'
 >                ; if p2'' == p2'
 >                  then return (p2', f)
->                  else return (p2'', \i -> (f2'' i) . (f i))
+>                  else return (p2'', \i sb -> let sb' = f i sb
+>                                              in sb' `seq` (f2'' i sb'))
 >                }
 >       ; ([(p1',f1')], []) -> -- todo
 >          let f i sb = case sb of 
@@ -183,7 +185,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >          in do { (p1'',f1'') <- simpFix (PPair p1' p2)
 >                ; if (p1'' == (PPair p1' p2))
 >                  then return (PPair p1' p2, f)
->                  else return (p1'', \i -> (f1'' i) . (f i)) 
+>                  else return (p1'', \i sb -> let sb' = f i sb
+>                                              in sb' `seq` (f1'' i sb')) 
 >                }
 >       ; _ | {- True -> do -} isGreedy p1 -> do 
 >         { (p1',f1) <- dPat0 p1 l
@@ -200,7 +203,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >         ; (p',f') <- simpFix (PChoice [PPair p1' p2, p2'] Greedy) 
 >         ; if (p' == (PChoice [PPair p1' p2, p2'] Greedy))
 >           then return (PChoice [PPair p1' p2, p2'] Greedy, f)
->           else return (p', \i -> (f' i) . (f i))          
+>           else return (p', \i sb -> let sb' = f i sb 
+>                                     in sb' `seq`  (f' i sb'))          
 >         }
 >           | otherwise -> do 
 >         { (p1',f1) <- dPat0 p1 l
@@ -219,7 +223,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >         ; (p',f') <- simpFix (PChoice [p2' , PPair p1' p2] Greedy) 
 >         ; if (p' == (PChoice [p2' , PPair p1' p2] Greedy))
 >           then return (PChoice [p2' , PPair p1' p2] Greedy, f)
->           else return (p', \i -> (f' i) . (f i))          
+>           else return (p', \i sb-> let sb' = f i sb
+>                                    in sb' `seq` (f' i sb'))          
 >         }
 >       }
 >    | otherwise =
@@ -229,7 +234,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >          ; (p',f') <- simpFix (PPair p1' p2)
 >          ; if (p' == (PPair p1' p2))
 >            then return (PPair p1' p2, f)
->            else return (p', \i -> (f' i) . (f i))
+>            else return (p', \i sb -> let sb' = f i sb 
+>                                      in sb' `seq` (f' i sb'))
 >          }
 > dPat0 (PChoice [] g) l = mzero
 > dPat0 y@(PChoice [p] g) l = do
@@ -240,7 +246,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >       ; (p'',f'') <- simpFix p'
 >       ; if (p'' == p')
 >         then return (p', f)
->         else return (p'', \i -> (f'' i) . (f i))                     
+>         else return (p'', \i sb -> let sb' = f i sb 
+>                                    in sb' `seq` (f'' i sb'))                     
 >       }
 > dPat0 (PChoice ps g) l = 
 >    let pfs = map (\p -> dPat0 p l) ps
@@ -251,7 +258,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >    ; (p',f') <- simpFix p
 >    ; if (p' == p) 
 >      then return (p, f)
->      else return (p', \i -> (f' i) . (f i)) 
+>      else return (p', \i sb -> let sb' = f i sb 
+>                                in sb' `seq`  (f' i sb')) 
 >    }
 
 Turns a list of pattern x coercion pairs into a pchoice and a func, duplicate patterns are removed.
@@ -310,7 +318,8 @@ pfs .... todo
 >         ; let f' i sb = case sb of
 >                         { SChoice (s:ss) cf ->
 >                              let (SChoice ss' cf') = f'' i $ (SChoice ss cf)
->                                  ss'' = ss' `seq` ((f i s):ss')
+>                                  s' = f i s
+>                                  ss'' = s' `seq` ss' `seq` (s':ss')
 >                              in ss'' `seq` cf' `seq` SChoice ss'' cf'
 >                         ; _ -> error "nub2Choice coercion is applied to a non SChoice"
 >                         }
@@ -346,7 +355,8 @@ simplification
 >   ; [(p',f')] ->
 >      if p' == p
 >      then [(p,f)]
->      else simpFix' p' (\i -> (f' i) . (f i))
+>      else simpFix' p' (\i sb -> let sb' = f i sb
+>                                 in sb' `seq`  (f' i sb))
 >   }
 
 
@@ -356,7 +366,7 @@ invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat i
 > simp (PVar x w p) = do
 >   { (p',f') <- simp p
 >   ; case p' of
->     { _ | p == p' -> return (PVar x w p,\i -> id)
+>     { _ | p == p' -> return (PVar x w p,\_ sb -> sb)
 >         | isPhi (strip p') -> mzero
 >         | otherwise -> let f i sb = case sb of 
 >                                     { SVar vr sb' cf -> let sb'' = f' i sb' 
@@ -410,7 +420,7 @@ invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat i
 >        nubPF :: [[(Pat, Int -> SBinder -> SBinder)]] -> [(Pat, Int -> SBinder -> SBinder)] 
 >        nubPF pfs = nub2Choice pfs M.empty
 >    in nubPF pfs
-> simp p = return (p,\i -> id)
+> simp p = return (p,\_ sb -> sb)
 
 
 > carryForward :: CarryForward -> SBinder -> SBinder
@@ -566,12 +576,12 @@ get all envs from the sbinder
 testing 
 
 > testp = 
->    let (Right (pp,posixBnd)) = parsePatPosix "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix "(.*)$"-- "X(.?){1,8}Y"
 >    in pp
 
 
 > testp2 = 
->    let (Right (pp,posixBnd)) = parsePatPosix "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix "(.*)$"-- "X(.?){1,8}Y"
 >        fb                    = followBy pp
 >    in (pp,fb,posixBnd)
 
