@@ -279,7 +279,7 @@ pfs .... todo
 > nub2Choice [] pDict = return (PChoice [] Greedy, (\i-> id)) -- the base case is the identity
 > nub2Choice ([]:pfs) pDict = do 
 >      { (PChoice ps g, f'') <- nub2Choice pfs pDict
->      ; let f' i sb = case sb of
+>      ; let f' i sb = {-# SCC "nub2Choice/f1" #-} case sb of
 >            { SChoice (s:ss) cf ->
 >                 f'' i $! (SChoice ss cf)
 >            ; _ -> error "nub2Choice coercion is applied to a non SChoice"
@@ -287,9 +287,9 @@ pfs .... todo
 >      ; return (PChoice ps g, f')
 >      }                                  
 > nub2Choice ([(p,f)]:pfs) pDict  -- recall the invarance of nub2Choice and dPat0, the return value of f shares the same shape of p
->   | isPhi (strip p) || p `M.member` pDict = do  -- simplification
+>   | isPhi (strip p) || {-# SCC "nub2Choice/member" #-} p `M.member` pDict = do  -- simplification
 >      { (PChoice ps g, f'') <- nub2Choice pfs pDict
->      ; let f' i sb = case sb of
+>      ; let f' i sb =  {-# SCC "nub2Choice/f2" #-} case sb of
 >            { SChoice (s:ss) cf ->
 >                 f'' i $! (SChoice ss cf)
 >            ; _ -> error "nub2Choice coercion is applied to a non SChoice"
@@ -302,7 +302,7 @@ pfs .... todo
 >         { let fs' :: [Int -> SBinder -> SBinder]
 >               fs' = repeat (\i -> id) --  identity functions
 >         ; (p', f'') <- nub2Choice ((map (\x -> [x]) (zip ps' fs'))++pfs) pDict -- todo
->         ; let f' i sb = case sb of  
+>         ; let f' i sb = {-# SCC "nub2Choice/f3" #-} case sb of  
 >                         { (SChoice (s:ss) cf) ->
 >                             case (f i s) of
 >                             { SChoice ss'' cf' -> let ss''' = map (\x -> carryForward cf' x) ss''
@@ -315,7 +315,7 @@ pfs .... todo
 >       ; _ ->   
 >         do
 >         { (PChoice ps g, f'') <- nub2Choice pfs (M.insert p f pDict)
->         ; let f' i sb = case sb of
+>         ; let f' i sb = {-# SCC "nub2Choice/f4" #-} case sb of
 >                         { SChoice (s:ss) cf ->
 >                              let (SChoice ss' cf') = f'' i $ (SChoice ss cf)
 >                                  s' = f i s
@@ -664,7 +664,7 @@ mapM_ (\p -> putStrLn (show p)) (sort allStates)
 >           in case {-# SCC "execDfa/IM.lookup" #-} IM.lookup k dfaTable of
 >               { Nothing -> [] -- error (" k not found " ++ show i ++ " " ++  show l)
 >               ; Just (j, f, sb2env) -> 
->                  let sb' = {-# SCC "execDfa/compute_sb" #-} cnt `seq` sb `seq` f cnt sb
+>                  let sb' = {-# SCC "execDfa/compute_sb" #-} {- cnt `seq` -} sb `seq` f cnt sb
 >                      nextDfaStateSBinders =  {-# SCC "execDfa/nextDfaStateSBinders" #-} j `seq` sb' `seq` sb2env `seq` 
 >                                              [(j, sb',sb2env)] 
 >                      cnt' = {-# SCC "execDfa/cnt'" #-} cnt + 1
