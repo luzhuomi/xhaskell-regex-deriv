@@ -59,11 +59,14 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 > combineCF cf1 cf2 = {-# SCC "combineCF/unionWith" #-} IM.unionWith combineRange cf1 cf2
 
 
+> {-
 > combineRange :: [Range] -> [Range] -> [Range]
 > combineRange rs1 rs2 = 
 >    let rs = rs1 `seq` rs2 `seq` {-# SCC "combineRange/combineRangeAcc" #-} combineRangeAcc [] rs1 rs2 
 >    in rs `seq` reverse rs
 
+
+> 
 > combineRangeAcc :: [Range] -> [Range] -> [Range] -> [Range]
 > combineRangeAcc acc [] rs2 = let rs2' = reverse rs2 in rs2' `seq` rs2' ++ acc
 > combineRangeAcc acc rs1 [] = let rs1' = reverse rs1 in rs1' `seq` rs1' ++ acc
@@ -82,22 +85,41 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 >                 in acc' `seq` (combineRangeAcc acc' rs1 (r2:rs2))
 >   | otherwise = error $ "unhandle combineRangeAcc:" ++ show (r1:rs1) ++ " vs " ++ show (r2:rs2)
 
-> {-
+> -}
 > combineRange :: [Range] -> [Range] -> [Range]
+> -- combineRange rs1 rs2 = rs2
 > combineRange [] rs2 = rs2
 > combineRange rs1 [] = rs1
 > combineRange ((r1@(Range b1 e1)):rs1) ((r2@(Range b2 e2)):rs2) 
->   | b1 == b2 && e1 >= e2 = (Range b1 e1):(combineRange rs1 rs2)
->   | b1 == b2 && e2 >= e1 = (Range b2 e2):(combineRange rs1 rs2)
->   | b1 == e2+1 = (Range b2 e1):(combineRange rs1 rs2)
->   | b2 == e1+1 = (Range b1 e2):(combineRange rs1 rs2)
->   | b1 > e2+1 = (Range b2 e2):(combineRange (r1:rs1) rs2)
->   | b2 > e1+1 = (Range b1 e1):(combineRange rs1 (r2:rs2))
+>   | b1 == b2 && e1 >= e2 = -- (Range b1 e1):(combineRange rs1 rs2)
+>                            let r = Range b1 e1  
+>                                rs = combineRange rs1 rs2
+>                            in r `seq` rs `seq` (r:rs)
+>   | b1 == b2 && e2 >= e1 = -- (Range b2 e2):(combineRange rs1 rs2)
+>                            let r = Range b2 e2 
+>                                rs = combineRange rs1 rs2
+>                            in r `seq` rs `seq` (r:rs)
+>   | b1 == e2+1 = -- (Range b2 e1):(combineRange rs1 rs2)
+>                  let r = Range b2 e1
+>                      rs = combineRange rs1 rs2
+>                  in r `seq` rs `seq` (r:rs)
+>   | b2 == e1+1 = -- (Range b1 e2):(combineRange rs1 rs2)
+>                  let r = Range b1 e2
+>                      rs = combineRange rs1 rs2
+>                  in r `seq` rs `seq` (r:rs)
+>   | b1 > e2+1 = -- (Range b2 e2):(combineRange (r1:rs1) rs2)
+>                 let rs1' = (r1:rs1)                      
+>                     rs = rs1' `seq` combineRange rs1' rs2
+>                 in  rs `seq` (r2:rs)
+>   | b2 > e1+1 = -- (Range b1 e1):(combineRange rs1 (r2:rs2))
+>                 let rs2' = r2:rs2
+>                     rs = rs2' `seq` combineRange rs1 rs2'
+>                 in rs `seq` (r1:rs)
 >   | otherwise = error $ "unhandle combineRange:" ++ show (r1:rs1) ++ " vs " ++ show (r2:rs2)
 
 
 
-> -}
+> -- -}
 
 
 > combineCFs :: [CarryForward] -> CarryForward 
@@ -473,12 +495,12 @@ extract a carry foward from the sbinder
 
 > updateRange :: Int -> [Range] -> [Range]
 > updateRange pos (rs_@((Range b e):rs)) = 
->           let e' = e + 1    
->           in case e' of
->              _ | pos == e' -> ((Range b e'):rs)
->                | pos > e'  -> ((Range pos pos):rs_)
+>           let e' =  e `seq` e + 1    
+>           in e' `seq` case e' of
+>              _ | pos == e' -> let r = Range b e' in r `seq` (r:rs)
+>                | pos > e'  -> let r = Range pos pos in r `seq` (r:rs_)
 >                | otherwise -> error "impossible, the current letter position is smaller than the last recorded letter" 
-> updateRange pos [] = [(Range pos pos)]
+> updateRange pos [] = let r = Range pos pos in r `seq` [r]
 
 
 > matchInner :: [(Pat, SBinder)] -> [(Char,Int)] -> [(Pat, SBinder)]
@@ -576,12 +598,12 @@ get all envs from the sbinder
 testing 
 
 > testp = 
->    let (Right (pp,posixBnd)) = parsePatPosix "(.*)$"-- "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$"-- "X(.?){1,8}Y"
 >    in pp
 
 
 > testp2 = 
->    let (Right (pp,posixBnd)) = parsePatPosix "(.*)$"-- "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$"-- "X(.?){1,8}Y"
 >        fb                    = followBy pp
 >    in (pp,fb,posixBnd)
 
