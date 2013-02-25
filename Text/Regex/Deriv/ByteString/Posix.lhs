@@ -7,6 +7,7 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 
 
 > {-# LANGUAGE GADTs, MultiParamTypeClasses, FunctionalDependencies,
+>     BangPatterns, 
 >     FlexibleInstances, TypeSynonymInstances, FlexibleContexts #-} 
 
 
@@ -55,9 +56,28 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 > type CarryForward = IM.IntMap [Range] -- we only keep the first choice (i.e. the posix)  hence it is always mapping one variable to one env
 > emptyCF = IM.empty
 
-> combineCF :: CarryForward -> CarryForward -> CarryForward
-> combineCF cf1 cf2 = {-# SCC "combineCF/unionWith" #-} IM.unionWith combineRange cf1 cf2
 
+> combineCF :: CarryForward -> CarryForward -> CarryForward
+> combineCF cf1 cf2 = IM.foldWithKey (\k r cf -> cf `seq` k `seq` r `seq` updateIfExist k r cf) cf2 cf1
+>                          
+> updateIfExist :: IM.Key -> [Range] -> CarryForward -> CarryForward
+> updateIfExist k !r !cf = 
+>    case IM.lookup k cf of   
+>    { Just !r' -> IM.update (\_ -> Just (combineRange r r')) k cf
+> --    { Just !r' -> IM.update (\_ -> Just r) k cf
+>     ; Nothing -> IM.insert k r cf }
+
+> {-
+> combineCF :: CarryForward -> CarryForward -> CarryForward
+> combineCF cf1 cf2 = cf1
+> -}
+
+> {-
+> combineCF :: CarryForward -> CarryForward -> CarryForward
+> combineCF cf1 cf2 = let -- l = logger (print ("combining" ++ show cf1 ++ " with " ++ show cf2))
+>                         !cf = {- l `seq` -} {-# SCC "combineCF/unionWith" #-} IM.unionWith combineRange cf1 cf2
+>                     in cf                          
+> -}
 
 > {-
 > combineRange :: [Range] -> [Range] -> [Range]
@@ -87,7 +107,6 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 
 > -}
 > combineRange :: [Range] -> [Range] -> [Range]
-> -- combineRange rs1 rs2 = rs2
 > combineRange [] rs2 = rs2
 > combineRange rs1 [] = rs1
 > combineRange ((r1@(Range b1 e1)):rs1) ((r2@(Range b2 e2)):rs2) 
@@ -153,87 +172,95 @@ The shapes of the input/output Pat and SBinder should be identical.
 
 > dPat0 :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)] -- the result is always singleton or empty
 > dPat0 y@(PVar x w p) l = 
->    do { (p',f) <- dPat0 p l  
->       ; let f' i sb = case sb of 
->                       { SVar (v,r) sb' cf -> let sb'' = f i sb' 
->                                                  r' = updateRange i r
->                                              in sb'' `seq` r' `seq` SVar (v, r') sb'' cf 
->                       ; senv -> error $ "invariance is broken: " ++ show y ++ " vs " ++ show senv 
+>    do { (!p',!f) <- dPat0 p l  
+>       ; let f' !i !sb = {-# SCC "dPat0/f0" #-} case sb of 
+>                       { SVar (!v,!r) !sb' !cf -> let sb'' = {-# SCC "dPat0/f0/sb''" #-} f i sb' 
+>                                                      r' =  {-# SCC "dPat0/f0/updateRange" #-} updateRange i r
+>                                                      r'' = {-# SCC "dPat0/f0/updateRange2" #-} r' `seq` r' 
+>                                                  in {-# SCC "dPat0/f0/in" #-}  sb'' `seq` r'' `seq` {-# SCC "dPat0/f0/in2" #-}  SVar (v, r') sb'' cf 
+>                       -- ; senv -> error $ "invariance is broken: " ++ show y ++ " vs " ++ show senv 
 >                       }
->       ; (p'',f'') <- simpFix (PVar x w p')
->       ; if (p'' == (PVar x w p')) 
+>       ; (!p'',!f'') <-  {-# SCC "dPat0/simpFix0" #-} simpFix (PVar x w p')
+>       ; if  {-# SCC "dPat0/eq" #-} (p'' == (PVar x w p')) 
 >         then return (PVar x w p', f')
->         else return (p'', \i sb -> let sb' = f' i sb
->                                    in sb' `seq` (f'' i sb'))
+>         else return (p'', (\i sb -> {-# SCC "dPat0/f0'" #-} 
+>                                     let sb' = sb `seq` i `seq` f' i sb
+>                                     in sb' `seq` (f'' i sb')))
 >       }
 > dPat0 (PE rs) l = 
->    let pds = nub (concatMap (\r -> partDeriv r l) rs)
+>    let pds' = (concatMap (\r -> partDeriv r l) rs)
+>        pds = pds' `seq` nub pds' 
 >    in pds `seq` 
 >       if null pds then mzero
->       else return (PE pds, (\_ sb -> sb) )
+>       else return (PE pds, (\_ !sb -> {-# SCC "dPat0/id0" #-}  sb) )
 > dPat0 (PStar p g) l = 
->    do { (p', f) <- dPat0 p l        
+>    do { (!p', !f) <- dPat0 p l        
 >       ; let emp = toSBinder p                     
->       ; return (PPair p' (PStar p g), (\i sb -> 
->                     case sb of { SStar cf -> let sb' =  f i emp 
->                                              in sb' `seq` 
->                                                 SPair sb' sb cf} ) ) 
+>       ; emp `seq` 
+>         return (PPair p' (PStar p g), (\i sb -> {-# SCC "dPat0/f1" #-} i `seq` sb `seq` 
+>                     case sb of { SStar !cf -> let sb' =  f i emp 
+>                                               in sb' `seq` 
+>                                                  SPair sb' sb cf} ) ) 
 >       }
-> dPat0 (PPair p1 p2) l 
+> dPat0 (PPair !p1 !p2) l 
 >    | (posEpsilon (strip p1)) =
 >       let pf1 = dPat0 p1 l                           
 >           pf2 = dPat0 p2 l
 >       in case (pf1, pf2) of
 >       { ([], []) -> mzero
->       ; ([], [(p2',f2')]) ->
+>       ; ([], [(!p2',!f2')]) ->
 >          let rm = extract p1
->              f i sb = case sb of 
->                 { SPair sb1 sb2 cf -> 
->                      let sb1' = rm sb1  
->                          cf' = sb1' `seq` combineCF sb1' cf
->                          sb2' = f2' i sb2
->                      in cf' `seq` sb2' `seq` carryForward cf' sb2' }
->          in do { (p2'',f2'') <- simpFix p2'
+>              f !i !sb = {-# SCC "dPat0/f3" #-} case sb of 
+>                 { SPair !sb1 !sb2 !cf -> 
+>                      let sb1' = {-# SCC "dPat0/f3/rm" #-}rm sb1  
+>                          cf' = {-# SCC "dPat0/f3/cf'" #-}sb1' `seq` combineCF sb1' cf
+>                          sb2' = {-# SCC "dPat0/f3/sb2'" #-}f2' i sb2
+>                      in cf' `seq` sb2' `seq` {-# SCC "dPat0/f3/carryForward" #-} carryForward cf' sb2' }
+>          in do { (!p2'',!f2'') <- simpFix p2'
 >                ; if p2'' == p2'
 >                  then return (p2', f)
->                  else return (p2'', \i sb -> let sb' = f i sb
+>                  else return (p2'', \i sb -> {-# SCC "dPat0/f4" #-} 
+>                                              let sb' = i `seq` sb `seq` f i sb
 >                                              in sb' `seq` (f2'' i sb'))
 >                }
->       ; ([(p1',f1')], []) -> -- todo
->          let f i sb = case sb of 
->                 { SPair sb1 sb2 cf -> let sb1' =  f1' i sb1 
->                                       in sb1' `seq` 
->                                          SPair sb1' sb2 cf }
->          in do { (p1'',f1'') <- simpFix (PPair p1' p2)
+>       ; ([(!p1',!f1')], []) -> -- todo
+>          let f !i !sb = case sb of 
+>                 { SPair !sb1 !sb2 !cf -> {-# SCC "dPat0/f5" #-} 
+>                                          let sb1' =  f1' i sb1 
+>                                          in sb1' `seq` 
+>                                             SPair sb1' sb2 cf }
+>          in do { (!p1'',!f1'') <- simpFix (PPair p1' p2)
 >                ; if (p1'' == (PPair p1' p2))
 >                  then return (PPair p1' p2, f)
->                  else return (p1'', \i sb -> let sb' = f i sb
+>                  else return (p1'', \i sb -> {-# SCC "dPat0/f6" #-} 
+>                                              let sb' = i `seq` sb `seq` f i sb
 >                                              in sb' `seq` (f1'' i sb')) 
 >                }
->       ; _ | {- True -> do -} isGreedy p1 -> do 
->         { (p1',f1) <- dPat0 p1 l
->         ; (p2',f2) <- dPat0 p2 l
+>       ; _ | isGreedy p1 -> do 
+>         { (!p1',!f1) <- dPat0 p1 l
+>         ; (!p2',!f2) <- dPat0 p2 l
 >         ; let rm = extract p1
->               f i sb = case sb of
->                 { SPair sb1 sb2 cf ->
+>               f !i !sb = {-# SCC "dPat0/f7" #-} case sb of
+>                 { SPair !sb1 !sb2 !cf ->
 >                     let sb1' = rm sb1
 >                         sb1'' = f1 i sb1
 >                         cf' = sb1' `seq` sb1' `combineCF` cf
 >                         sb2' = f2 i sb2
 >                         sb2'' = sb2' `seq` cf' `seq` carryForward cf' sb2'
 >                     in sb1'' `seq` cf `seq` sb2 `seq` sb2'' `seq` SChoice [ SPair sb1'' sb2 cf, sb2'' ] emptyCF }
->         ; (p',f') <- simpFix (PChoice [PPair p1' p2, p2'] Greedy) 
+>         ; (!p',!f') <- simpFix (PChoice [PPair p1' p2, p2'] Greedy) 
 >         ; if (p' == (PChoice [PPair p1' p2, p2'] Greedy))
 >           then return (PChoice [PPair p1' p2, p2'] Greedy, f)
->           else return (p', \i sb -> let sb' = f i sb 
+>           else return (p', \i sb -> {-# SCC "dPat0/f8" #-} 
+>                                     let sb' = i `seq` sb `seq` f i sb 
 >                                     in sb' `seq`  (f' i sb'))          
 >         }
 >           | otherwise -> do 
->         { (p1',f1) <- dPat0 p1 l
->         ; (p2',f2) <- dPat0 p2 l
+>         { (!p1',!f1) <- dPat0 p1 l
+>         ; (!p2',!f2) <- dPat0 p2 l
 >         ; let rm = extract p1
->               f i sb = case sb of
->                 { SPair sb1 sb2 cf ->
+>               f !i !sb = {-# SCC "dPat0/f9" #-} case sb of
+>                 { SPair !sb1 !sb2 !cf ->
 >                     let sb1' = rm sb1
 >                         sb2' = f2 i sb2
 >                         cf1' = sb1' `seq` cf `seq` 
@@ -242,45 +269,50 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                         sb2'' = cf1' `seq` sb2' `seq` carryForward cf1' sb2'
 >                     in  sb2'' `seq` sb1'' `seq` sb2 `seq` 
 >                        SChoice [sb2'',  SPair sb1'' sb2 cf ] emptyCF }
->         ; (p',f') <- simpFix (PChoice [p2' , PPair p1' p2] Greedy) 
+>         ; (!p',!f') <- simpFix (PChoice [p2' , PPair p1' p2] Greedy) 
 >         ; if (p' == (PChoice [p2' , PPair p1' p2] Greedy))
 >           then return (PChoice [p2' , PPair p1' p2] Greedy, f)
->           else return (p', \i sb-> let sb' = f i sb
->                                    in sb' `seq` (f' i sb'))          
+>           else return (p', \i sb -> {-# SCC "dPat0/f10" #-} let sb' =  i `seq` sb `seq` f i sb
+>                                     in sb' `seq` (f' i sb'))          
 >         }
 >       }
 >    | otherwise =
->       do { (p1',f1) <- dPat0 p1 l
->          ; let f i sb = case sb of { SPair sb1 sb2 cf -> let sb1' = f1 i sb1
->                                                          in sb1' `seq` sb2 `seq` SPair sb1' sb2 cf } 
->          ; (p',f') <- simpFix (PPair p1' p2)
+>       do { (!p1',!f1) <- dPat0 p1 l
+>          ; let f !i !sb = {-# SCC "dPat0/f11" #-} case sb of { SPair !sb1 !sb2 !cf -> 
+>                                                                let sb1' = f1 i sb1
+>                                                                in sb1' `seq` sb2 `seq` SPair sb1' sb2 cf } 
+>          ; (!p',!f') <- simpFix (PPair p1' p2)
 >          ; if (p' == (PPair p1' p2))
 >            then return (PPair p1' p2, f)
->            else return (p', \i sb -> let sb' = f i sb 
+>            else return (p', \i sb -> {-# SCC "dPat0/f12" #-} 
+>                                      let sb' =  i `seq` sb `seq` f i sb 
 >                                      in sb' `seq` (f' i sb'))
 >          }
 > dPat0 (PChoice [] g) l = mzero
-> dPat0 y@(PChoice [p] g) l = do
->       { (p',f') <- dPat0 p l
->       ; let f i sb = case sb of { SChoice [sb'] cf -> let sb'' =  (f' i sb')  in sb'' `seq` carryForward cf sb''
->                                 ; senv -> error $ "invariance is broken: " ++ pretty y ++ " vs "  ++ show senv 
->                                 }
->       ; (p'',f'') <- simpFix p'
+> dPat0 y@(PChoice [!p] g) l = do
+>       { (!p',!f') <- dPat0 p l
+>       ; let f !i !sb = {-# SCC "dPat0/f13" #-} 
+>                        case sb of { SChoice [!sb'] !cf -> let sb'' =  (f' i sb')  in sb'' `seq` carryForward cf sb''
+>                                   ; senv -> error $ "invariance is broken: " ++ pretty y ++ " vs "  ++ show senv 
+>                                   }
+>       ; (!p'',!f'') <- simpFix p'
 >       ; if (p'' == p')
 >         then return (p', f)
->         else return (p'', \i sb -> let sb' = f i sb 
+>         else return (p'', \i sb -> {-# SCC "dPat0/f14" #-} 
+>                                    let sb' = i `seq` sb `seq` f i sb 
 >                                    in sb' `seq` (f'' i sb'))                     
 >       }
-> dPat0 (PChoice ps g) l = 
->    let pfs = map (\p -> dPat0 p l) ps
+> dPat0 (PChoice !ps g) l = 
+>    let pfs = map (\p -> p `seq` dPat0 p l) ps
 >        nubPF :: [[(Pat, Int -> SBinder -> SBinder)]] -> [(Pat, Int -> SBinder -> SBinder)] 
 >        nubPF pfs = nub2Choice pfs M.empty 
 >    in do 
->    { (p,f) <- nubPF pfs
->    ; (p',f') <- simpFix p
+>    { (!p,!f) <- pfs `seq` nubPF pfs
+>    ; (!p',!f') <- simpFix p
 >    ; if (p' == p) 
 >      then return (p, f)
->      else return (p', \i sb -> let sb' = f i sb 
+>      else return (p', \i sb -> {-# SCC "dPat0/f15" #-} 
+>                                let sb' =  i `seq` sb `seq` f i sb 
 >                                in sb' `seq`  (f' i sb')) 
 >    }
 
@@ -298,21 +330,21 @@ pfs .... todo
 {[]}\cup pfs , d |-nub PChoice {}, \i -> id
 
 > nub2Choice :: [[(Pat, Int -> SBinder -> SBinder)]] -> M.Map Pat (Int -> SBinder -> SBinder) -> [(Pat, Int -> SBinder -> SBinder)] -- the return type is a singleton list.
-> nub2Choice [] pDict = return (PChoice [] Greedy, (\i-> id)) -- the base case is the identity
+> nub2Choice [] pDict = return (PChoice [] Greedy, (\i !sb -> {-# SCC "nubChoice/id0" #-} sb )) -- the base case is the identity
 > nub2Choice ([]:pfs) pDict = do 
->      { (PChoice ps g, f'') <- nub2Choice pfs pDict
->      ; let f' i sb = {-# SCC "nub2Choice/f1" #-} case sb of
->            { SChoice (s:ss) cf ->
+>      { (PChoice !ps !g, !f'') <- nub2Choice pfs pDict
+>      ; let f' !i !sb = {-# SCC "nub2Choice/f1" #-} case sb of
+>            { SChoice (s:ss) !cf -> ss `seq`
 >                 f'' i $! (SChoice ss cf)
 >            ; _ -> error "nub2Choice coercion is applied to a non SChoice"
 >            }
->      ; return (PChoice ps g, f')
+>      ; return  (PChoice ps g, f')
 >      }                                  
-> nub2Choice ([(p,f)]:pfs) pDict  -- recall the invarance of nub2Choice and dPat0, the return value of f shares the same shape of p
+> nub2Choice ([(!p,!f)]:pfs) !pDict  -- recall the invarance of nub2Choice and dPat0, the return value of f shares the same shape of p
 >   | isPhi (strip p) || {-# SCC "nub2Choice/member" #-} p `M.member` pDict = do  -- simplification
->      { (PChoice ps g, f'') <- nub2Choice pfs pDict
->      ; let f' i sb =  {-# SCC "nub2Choice/f2" #-} case sb of
->            { SChoice (s:ss) cf ->
+>      { (PChoice !ps !g, !f'') <- nub2Choice pfs pDict
+>      ; let f' !i !sb =  {-# SCC "nub2Choice/f2" #-} case sb of
+>            { SChoice (s:ss) !cf -> ss `seq` 
 >                 f'' i $! (SChoice ss cf)
 >            ; _ -> error "nub2Choice coercion is applied to a non SChoice"
 >            }
@@ -320,32 +352,38 @@ pfs .... todo
 >      } 
 >   | otherwise = 
 >     case p of 
->       { PChoice ps' g' -> do 
+>       { PChoice !ps' !g' -> do 
 >         { let fs' :: [Int -> SBinder -> SBinder]
->               fs' = repeat (\i -> id) --  identity functions
->         ; (p', f'') <- nub2Choice ((map (\x -> [x]) (zip ps' fs'))++pfs) pDict -- todo
->         ; let f' i sb = {-# SCC "nub2Choice/f3" #-} case sb of  
->                         { (SChoice (s:ss) cf) ->
+>               fs' = repeat (\i !sb -> {-# SCC "nubChoice/id1" #-}  sb ) --  identity functions
+>               pfs' = zip ps' fs'
+>               pfs'' = pfs' `seq` map (\x -> [x]) pfs'
+>               pfs''' = pfs'' `seq` pfs'' ++ pfs
+>         --;  (p', f'') <- nub2Choice ((map (\x -> [x]) (zip ps' fs'))++pfs) pDict 
+>         ; (!p', !f'') <- pfs''' `seq` nub2Choice pfs''' pDict
+>         ; let f' !i !sb = {-# SCC "nub2Choice/f3" #-} case sb of  
+>                         { (SChoice (s:ss) !cf) -> s `seq` ss `seq`
 >                             case (f i s) of
->                             { SChoice ss'' cf' -> let ss''' = map (\x -> carryForward cf' x) ss''
->                                                       ss'''' = ss''' `seq` ss `seq` (ss''' ++ ss)
->                                                   in ss'''' `seq` cf `seq` f'' i $ (SChoice ss'''' cf) 
+>                             { SChoice !ss'' !cf' -> let ss''' = map (\x -> x `seq` carryForward cf' x) ss''
+>                                                         ss'''' = ss''' `seq`  (ss''' ++ ss)
+>                                                     in ss'''' `seq` f'' i $ (SChoice ss'''' cf) 
 >                             ; _ -> error "nub2Choice coercion is applied to a non SChoice" }
 >                         ;  _ -> error "nub2Choice coercion is applied to a non SChoice" }
 >         ; return (p', f')
 >         }
 >       ; _ ->   
 >         do
->         { (PChoice ps g, f'') <- nub2Choice pfs (M.insert p f pDict)
->         ; let f' i sb = {-# SCC "nub2Choice/f4" #-} case sb of
->                         { SChoice (s:ss) cf ->
->                              let (SChoice ss' cf') = f'' i $ (SChoice ss cf)
+>         { let pDict' = M.insert p f pDict
+>         ; (PChoice !ps !g, !f'') <- pfs `seq` pDict' `seq` nub2Choice pfs pDict'
+>         ; let f' !i !sb = {-# SCC "nub2Choice/f4" #-} case sb of
+>                         { SChoice (s:ss) !cf -> s `seq` ss `seq` 
+>                              let (SChoice !ss' !cf') = f'' i $ (SChoice ss cf)
 >                                  s' = f i s
 >                                  ss'' = s' `seq` ss' `seq` (s':ss')
 >                              in ss'' `seq` cf' `seq` SChoice ss'' cf'
 >                         ; _ -> error "nub2Choice coercion is applied to a non SChoice"
 >                         }
->         ; return (PChoice (p:ps) g, f')
+>         ; let ps' = (p:ps)
+>         ; ps' `seq` return (PChoice ps' g, f')
 >         }
 >       }
 
@@ -369,15 +407,15 @@ simplification
 > -}
 
 > simpFix :: Pat -> [(Pat, Int -> SBinder -> SBinder)]
-> simpFix p =  simp p -- simpFix' p (\i -> id)
+> simpFix p =  simp p -- simpFix' p (\i -> id) -- doto
 
 > simpFix' p f = 
 >   case simp p of
 >   { [] -> []  
->   ; [(p',f')] ->
+>   ; [(!p',!f')] ->
 >      if p' == p
 >      then [(p,f)]
->      else simpFix' p' (\i sb -> let sb' = f i sb
+>      else simpFix' p' (\i sb -> let sb' =  i `seq` sb `seq` f i sb
 >                                 in sb' `seq`  (f' i sb))
 >   }
 
@@ -385,72 +423,74 @@ simplification
 invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat input/ output
 
 > simp :: Pat -> [(Pat, Int -> SBinder -> SBinder)] -- the output list is singleton 
-> simp (PVar x w p) = do
->   { (p',f') <- simp p
+> simp (PVar !x w !p) = do
+>   { (!p',!f') <- simp p
 >   ; case p' of
->     { _ | p == p' -> return (PVar x w p,\_ sb -> sb)
+>     { _ | p == p' -> return (PVar x w p,\_ !sb -> {-# SCC "simp/id0" #-}  sb)
 >         | isPhi (strip p') -> mzero
->         | otherwise -> let f i sb = case sb of 
->                                     { SVar vr sb' cf -> let sb'' = f' i sb' 
->                                                         in sb'' `seq` SVar vr sb'' cf
+>         | otherwise -> let f i sb = {-# SCC "simp/f0" #-} i `seq` sb `seq` case sb of 
+>                                     { SVar !vr !sb' !cf -> let sb'' = f' i sb' 
+>                                                            in sb'' `seq` SVar vr sb'' cf
 >                                     }
 >                        in return (PVar x w p', f)
 >     }
 >   }
-> simp y@(PPair p1 p2) = do
->    { (p1',f1') <- simp p1
->    ; (p2',f2') <- simp p2
+> simp y@(PPair !p1 !p2) = do
+>    { (!p1',!f1') <- simp p1
+>    ; (!p2',!f2') <- simp p2
 >    ; case (p1',p2') of       
 >      { _ | isPhi p1' || isPhi p2' -> mzero
 >          | isEpsilon p1'          -> 
->              let rm = extract p1
->                  f i sb = case sb of
->                     { SPair sb1 sb2 cf -> let cf' = rm sb1 
->                                               cf'' =  cf' `seq` cf' `combineCF` cf
->                                               sb2' = sb2 `seq` f2' i sb2
->                                           in cf'' `seq` sb2' `seq` carryForward cf'' sb2' }
+>              let !rm = extract p1
+>                  f !i !sb = {-# SCC "simp/f1" #-} case sb of
+>                     { SPair !sb1 !sb2 !cf -> let cf' = rm sb1 
+>                                                  cf'' =  cf' `seq` cf' `combineCF` cf
+>                                                  sb2' = sb2 `seq` f2' i sb2
+>                                              in cf'' `seq` sb2' `seq` carryForward cf'' sb2' }
 >              in return (p2',f)
 >          | isEpsilon p2'          ->
->              let rm = extract p2
->                  f i sb = case sb of 
->                     { SPair sb1 sb2 cf -> let cf' = rm sb2 
->                                               cf'' = cf' `seq` (cf' `combineCF` cf) 
->                                               sb1' = f1' i sb1 
->                                           in cf'' `seq` sb1' `seq` carryForward cf'' sb1' }
+>              let !rm = extract p2
+>                  f !i !sb = {-# SCC "simp/f2" #-} case sb of 
+>                     { SPair !sb1 !sb2 !cf -> let cf' = rm sb2 
+>                                                  cf'' = cf' `seq` (cf' `combineCF` cf) 
+>                                                  sb1' = f1' i sb1 
+>                                              in cf'' `seq` sb1' `seq` carryForward cf'' sb1' }
 >              in return (p1',f)
 >          | otherwise              ->
->              let f i sb = case sb of
->                     { SPair sb1 sb2 cf -> let sb1' = (f1' i sb1)
->                                               sb2' = (f2' i sb2)
->                                           in sb1' `seq` sb2' `seq` SPair sb1' sb2' cf
+>              let f !i !sb = {-# SCC "simp/f3" #-} case sb of
+>                     { SPair !sb1 !sb2 !cf -> let sb1' = (f1' i sb1)
+>                                                  sb2' = (f2' i sb2)
+>                                              in sb1' `seq` sb2' `seq` SPair sb1' sb2' cf
 >                     ; senv -> error $ "invariance broken: " ++ pretty y ++ " vs " ++ show senv }
 >              in return (PPair p1' p2', f)
 >       }
 >    }
 > simp (PChoice [] g) = mzero
-> simp (PChoice [p] g) = do 
->    { (p',f') <- simp p
+> simp (PChoice [!p] !g) = do 
+>    { (!p',!f') <- simp p
 >    ; if isPhi p' 
 >      then mzero
 >      else 
->       let f i sb = case sb of { SChoice [sb'] cf -> let sb'' = sb' `seq` f' i sb' 
->                                                     in sb'' `seq` carryForward cf sb'' }
+>       let f !i !sb = {-# SCC "simp/f4" #-}
+>                      case sb of { SChoice [!sb'] !cf -> let sb'' = f' i sb' 
+>                                                         in sb'' `seq` carryForward cf sb'' }
 >       in return (p',f)
 >    }
-> simp (PChoice ps g) = 
+> simp (PChoice !ps !g) = 
 >    let pfs = map simp ps  
 >        nubPF :: [[(Pat, Int -> SBinder -> SBinder)]] -> [(Pat, Int -> SBinder -> SBinder)] 
 >        nubPF pfs = nub2Choice pfs M.empty
->    in nubPF pfs
-> simp p = return (p,\_ sb -> sb)
+>    in pfs `seq` nubPF pfs
+> simp p = return (p,\_ !sb -> {-# SCC "simp/id1" #-} sb)
 
 
 > carryForward :: CarryForward -> SBinder -> SBinder
-> carryForward sr (SVar (v, r) sb' cf) = SVar (v, r) sb' $! combineCF cf sr
-> carryForward sr (SRE cf) = SRE $! combineCF cf sr
-> carryForward sr (SStar cf) = SStar $! combineCF cf sr
-> carryForward sr (SPair sb1 sb2 cf) = SPair sb1 sb2 $! combineCF cf sr
-> carryForward sr (SChoice sbs cf) = SChoice sbs $! combineCF cf sr
+> carryForward sr (SVar (v, r) sb' cf) = let cf' = combineCF cf sr
+>                                        in cf' `seq` SVar (v, r) sb' cf'
+> carryForward sr (SRE cf) = let cf' = combineCF cf sr in cf' `seq` SRE cf'
+> carryForward sr (SStar cf) = let cf' = combineCF cf sr in cf' `seq` SStar cf'
+> carryForward sr (SPair sb1 sb2 cf) =  let cf' = combineCF cf sr in cf' `seq` SPair sb1 sb2 cf'
+> carryForward sr (SChoice sbs cf) =  let cf' = combineCF cf sr in cf' `seq` SChoice sbs cf'
 > carryForward sr sb2 = error ("trying to carry forward into a non-annotated pattern binder " ++ (show sb2))
 
 
@@ -474,33 +514,34 @@ invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat i
 >           assignInt (PChoice _ _) = 4
 
 
-extract a carry foward from the sbinder
+extract a carry forward from the sbinder
 
 > extract :: Pat -> SBinder -> CarryForward
-> extract (PVar x w p) (SVar (_,b) sb cf)
+> extract (PVar !x w !p) (SVar (_,!b) !sb !cf)
 >      | posEpsilon (strip p) = let cf' = extract p sb
 >                                   cf'' = cf' `seq` insertCF (x,b) cf'
 >                               in  cf'' `seq` (cf'' `combineCF` cf)
 >      | otherwise = IM.empty -- cf?
-> extract (PE rs) (SRE cf) = cf
-> extract (PStar p g) (SStar cf) = cf
-> extract (PPair p1 p2) (SPair sb1 sb2 cf) = let cf1 = (extract p1 sb1) 
->                                                cf2 = (extract p2 sb2) 
->                                            in cf1 `seq` cf2 `seq` (cf1 `combineCF` cf2 `combineCF` cf)
-> extract (PChoice ps g) (SChoice sbs cf) = let psbs = zip ps sbs 
->                                               cf' = psbs `seq` (combineCFs $! map (\(p,sb) -> extract p sb) psbs) 
->                                           in  cf' `seq` (cf' `combineCF` cf)
+> extract (PE rs) (SRE !cf) = cf
+> extract (PStar p g) (SStar !cf) = cf
+> extract (PPair !p1 !p2) (SPair !sb1 !sb2 !cf) = let cf1 = (extract p1 sb1) 
+>                                                     cf2 = (extract p2 sb2) 
+>                                                     cf' = cf1 `seq` cf2 `seq` (combineCF cf1 cf2)
+>                                                  in  cf' `seq` (cf' `combineCF` cf)
+> extract (PChoice !ps !g) (SChoice !sbs !cf) = let psbs = zip ps sbs 
+>                                                   cf' = psbs `seq` (combineCFs $! map (\(!p,!sb) -> extract p sb) psbs) 
+>                                               in  cf' `seq` (cf' `combineCF` cf)
 > extract p sb = error $ "Error: trying to extract" ++ (show sb) ++ " from " ++ (show p)
 
 
 > updateRange :: Int -> [Range] -> [Range]
-> updateRange pos (rs_@((Range b e):rs)) = 
->           let e' =  e `seq` e + 1    
+> updateRange !pos (rs_@((Range !b !e):rs)) = 
+>           let e' =  e + 1    
 >           in e' `seq` case e' of
->              _ | pos == e' -> let r = Range b e' in r `seq` (r:rs)
+>              _ | pos == e' -> let r = Range b e' in r `seq` rs `seq` (r:rs)
 >                | pos > e'  -> let r = Range pos pos in r `seq` (r:rs_)
 >                | otherwise -> error "impossible, the current letter position is smaller than the last recorded letter" 
-> updateRange pos [] = let r = Range pos pos in r `seq` [r]
+> updateRange !pos [] = let r = Range pos pos in r `seq` [r]
 
 
 > matchInner :: [(Pat, SBinder)] -> [(Char,Int)] -> [(Pat, SBinder)]
@@ -532,26 +573,31 @@ get all envs from the sbinder
 
 > sbinderToEnv :: Pat -> SBinder -> [Env]
 > sbinderToEnv p sb = 
->   let envs = sbinderToEnv' p sb
->   in map sortEnvByVar envs
+>   let envs = {-# SCC "sbinderToEnv/sbinderToEnv'" #-} sbinderToEnv' p sb
+>       envs' = {-# SCC "sbinderToEnv/sortEnvByVar'" #-} envs `seq` map sortEnvByVar envs
+>   in envs'
 
 > sbinderToEnv' :: Pat -> SBinder -> [Env]
 > sbinderToEnv' _ (SChoice [] _) = []
 > sbinderToEnv' (PChoice (p:ps) g) (SChoice (sb:sbs) cf) 
 >   | posEpsilon (strip p) = 
 >   do { env <- sbinderToEnv' p sb
->      ; return (env ++ (IM.toList cf)) }
+>      ; let env' = IM.toList cf                
+>      ; env `seq` env' `seq` return (env ++ env') }
 >   | otherwise = sbinderToEnv' (PChoice ps g) (SChoice sbs cf)
 > sbinderToEnv' (PPair p1 p2) (SPair sb1 sb2 cf) =
 >   do { e1 <- sbinderToEnv' p1 sb1 
 >      ; e2 <- sbinderToEnv' p2 sb2
->      ; return (e1 ++ e2) }
+>      ; let e3 = (IM.toList cf)
+>      ; e1 `seq` e2 `seq` e3 `seq` return (e1 ++ e2 ++ e3 ) }
 > sbinderToEnv' (PVar x _ p) (SVar sr sb cf) 
 >   | posEpsilon (strip p) = do { env <- sbinderToEnv' p sb
->                       ; return ((sr:env) ++ (IM.toList cf)) }
+>                               ; let env' = env `seq` sr `seq`  sr:env
+>                                     env'' = (IM.toList cf)
+>                               ; env' `seq` env'' `seq` return (env' ++ env'') }
 >   | otherwise = []
-> sbinderToEnv' (PStar _ _) (SStar cf) = [IM.toList cf]
-> sbinderToEnv' (PE _) (SRE cf) = [IM.toList cf]
+> sbinderToEnv' (PStar _ _) (SStar cf) = let env = IM.toList cf in env `seq` [env]
+> sbinderToEnv' (PE _) (SRE cf) = let env = IM.toList cf in env `seq` [env] 
 > sbinderToEnv' p sb = error $ (pretty p) ++ " and " ++ (show sb)
 
 
@@ -582,7 +628,7 @@ get all envs from the sbinder
 >       -- init_dict = M.insert p 0 M.empty        
 >       -- (allStates, delta, mapping) = builder sig [] [] init_dict 0 [p] -- 0 is already used by p
 >       init_dict = M.insert p 0 M.empty
->       (delta, mapping) = builder sig [] init_dict 0 [p] -- 0 is already used by p
+>       (delta, mapping) = {-# SCC "buildDfaTable/builder" #-}  builder sig [] init_dict 0 [p] -- 0 is already used by p
 >       {- 
 >       pat2id p = case M.lookup p mapping of 
 >              { Just i -> i 
@@ -590,7 +636,7 @@ get all envs from the sbinder
 >       -}
 >       -- delta' = map (\ (s,c,d,f) -> (pat2id s, c, pat2id d, f, sbinderToEnv d) ) delta
 >       delta' = delta
->       table = IM.fromList (map (\ (s,c,d,f,sb2env) -> (my_hash s c, (d,f,sb2env))) delta')
+>       table = {-# SCC "buildDfaTable/table" #-} IM.fromList (map (\ (s,c,d,f,sb2env) -> (my_hash s c, (d,f,sb2env))) delta')
 >       -- finals = map pat2id (filter (\p -> posEpsilon (strip p) ) allStates)
 >       finals = [] -- todo
 >   in (table, toSBinder p, sbinderToEnv p, finals)
@@ -663,13 +709,14 @@ mapM_ (\p -> putStrLn (show p)) (sort allStates)
 >    | otherwise = 
 >       let -- all_sofar_pats = dict `union` fromList (zip curr_pats [(id+1)..])
 >       --    io             = logger (print all_sofar_pats)
->           new_delta      = [ (p,l,p',f', sbinderToEnv p') | p <- curr_pats, l <- sig, (p',f') <- dPat0 p l  ]
->           new_pats       = D.nub [ p' | (p,l,p',f',g) <- new_delta, not (p' `M.member` dict) ]
->           (dict',max_id') = foldl' (\(d,id) p -> (M.insert p (id+1) d, id + 1)) (dict,max_id) new_pats
->           acc_delta_next = acc_delta ++ (map (\(p,l,p',f,g) -> (getId dict' p, l, getId dict' p', f, g)) new_delta)
+>           new_delta      = {-# SCC "builder/new_delta" #-} [ p `seq` p' `seq` l `seq` f' `seq` g `seq` (p,l,p',f',g) | p <- curr_pats, 
+>                                                              l <- sig, (p',f') <- {-# SCC "builder/dPat0" #-} dPat0 p l, let g = sbinderToEnv p'  ]
+>           new_pats       = {-# SCC "builder/new_pats" #-} D.nub [ p' | (p,l,p',f',g) <- new_delta, not (p' `M.member` dict) ]
+>           (dict',max_id') = {-# SCC "builder/dict'" #-} foldl' (\(d,id) p -> (M.insert p (id+1) d, id + 1)) (dict,max_id) new_pats
+>           acc_delta_next = {-# SCC "builder/acc_delta_next" #-} acc_delta ++ (map (\(p,l,p',f,g) -> (getId dict' p, l, getId dict' p', f, g)) new_delta)
 >       in {- io `seq` -} builder sig  acc_delta_next dict' max_id' new_pats     
 >  where getId :: M.Map Pat Int -> Pat -> Int 
->        getId m p = case M.lookup p m of 
+>        getId m p = {-# SCC "getId/M.lookup" #-} case M.lookup p m of 
 >                    { Just i -> i 
 >                    ; Nothing -> error "getId failed: this should not happen" }
 
@@ -736,16 +783,16 @@ x0 :: ( x1 :: (  x2 :: (x3:: a | x4 :: ab) | x5 :: b)* )
 >         -> S.ByteString -- ^ The regular expression to compile
 >         -> Either String Regex -- ^ Returns: the compiled regular expression
 > compile compOpt execOpt bs =
->     case parsePatPosix (S.unpack bs) of
+>     case {-# SCC "compile/parsePatPosix" #-} parsePatPosix (S.unpack bs) of
 >     Left err -> Left ("parseRegex for Text.Regex.Deriv.ByteString failed:"++show err)
 >     Right (pat,posixBnd) -> 
 >        Right (patToRegex pat posixBnd compOpt execOpt)
 
 
 > patToRegex p posixBnd compOpt execOpt  =  
->     let (t, sb, toEnv, finals) = compilePat p
->         fb = followBy p
->     in (t, sb, toEnv, finals, fb, posixBnd)
+>     let (t, sb, toEnv, finals) = {-# SCC "patToRegex/compilePat" #-} compilePat p
+>         fb = {-# SCC "patToRegex/followBy" #-} followBy p
+>     in t `seq` sb `seq` toEnv `seq` finals `seq` fb `seq` posixBnd `seq` (t, sb, toEnv, finals, fb, posixBnd)
 
 
 
