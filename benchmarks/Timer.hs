@@ -1,12 +1,13 @@
 module Main where
 
-import System
+import System.Environment
 import System.IO
 import System.Process 
 import System.Locale
 import System.Posix.Process
 import System.Posix.Files
 import System.Posix.Directory
+import System.Exit
 
 import qualified Text.Regex.PDeriv.ByteString.LeftToRightD as R
 import qualified Data.ByteString.Char8 as S
@@ -19,9 +20,9 @@ isExitFailure :: ExitCode -> Bool
 isExitFailure (ExitFailure _) = True
 isExitFailure _ = False
 
-timeExec :: FilePath -> R.Regex -> String -> String -> IO ()
-timeExec fp r exec arg = do 
-  { (ec,stdin,stderr) <- readProcessWithExitCode "time" [exec,arg] []
+timeExec :: FilePath -> R.Regex -> String -> String -> String -> IO ()
+timeExec fp r exec pstr arg = do 
+  { (ec,stdin,stderr) <- readProcessWithExitCode "time" [exec,pstr,arg] []
   ; if isExitFailure ec 
     then do print "failed"
             print (show (ec,stdin,stderr))
@@ -50,13 +51,13 @@ parse compiled s = case R.regexec compiled s of
                    
 main :: IO ()
 main = do 
-  { (exec:logfile:rest) <- getArgs
+  { (exec:pstr:logfile:rest) <- getArgs
   ; let compiled = case R.compile R.defaultCompOpt R.defaultExecOpt pat of
                      Left _  -> error " compilation failed . "
                      Right r -> r
         params = parseArgs rest
   -- ; S.writeFile logfile S.empty
-  ; mapM_ (\x -> do { timeExec logfile compiled exec x } ) params
+  ; mapM_ (\x -> do { timeExec logfile compiled exec pstr x } ) params
   }
     where 
       parseArgs :: [String] -> [String]
