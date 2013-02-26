@@ -134,12 +134,18 @@ getters and putters
 > trans :: EPat -> State TState Pat
 > trans epat = 
 >     do { is_posix <- isPosix -- if it is posix, we need to aggresively "tag" every sub expression with a binder
->        ; if is_posix && isStructural epat
+>        ; if is_posix  && isStructural epat
 >          then do 
 >            { gi <- getIncGI
 >            ; ipat <- trans' epat
->            ; addPosixBinder gi
->            ; return (PVar gi [] ipat)
+>            ; if isPVar ipat
+>              then do 
+>              { return ipat
+>              }
+>              else do 
+>              { addPosixBinder gi
+>              ; return (PVar gi [] ipat)
+>              }
 >            }
 >          else trans' epat
 >        }
@@ -150,6 +156,9 @@ getters and putters
 >           isStructural (EPlus _ _) = True
 >           isStructural (EStar _ _) = True
 >           isStructural _           = False                                                                      
+>           isPVar :: Pat -> Bool
+>           isPVar (PVar _ _ _) = True
+>           isPVar _ = False
 
 > trans' :: EPat -> State TState Pat
 > trans' epat 

@@ -110,30 +110,48 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 > combineRange [] rs2 = rs2
 > combineRange rs1 [] = rs1
 > combineRange ((r1@(Range b1 e1)):rs1) ((r2@(Range b2 e2)):rs2) 
->   | b1 == b2 && e1 >= e2 = -- (Range b1 e1):(combineRange rs1 rs2)
->                            let r = Range b1 e1  
->                                rs = combineRange rs1 rs2
->                            in r `seq` rs `seq` (r:rs)
->   | b1 == b2 && e2 >= e1 = -- (Range b2 e2):(combineRange rs1 rs2)
->                            let r = Range b2 e2 
->                                rs = combineRange rs1 rs2
->                            in r `seq` rs `seq` (r:rs)
->   | b1 == e2+1 = -- (Range b2 e1):(combineRange rs1 rs2)
->                  let r = Range b2 e1
+>   | b1 == b2 && e1 >= e2 = -- keeping all the discontinuated binding of p* 
+>                            {-
+>                            let rs = combineRange rs1 rs2
+>                            in rs `seq` (r1:rs) 
+>                            -}
+>                            -- keeping only the last binding
+>                            [r1]
+>   | b1 == b2 && e2 >= e1 = -- keeping all the discontinuated binding of p*
+>                            {-  
+>                            let rs = combineRange rs1 rs2
+>                            in rs `seq` (r2:rs)
+>                            -}
+>                            -- keeping only the last binding
+>                            [r2]
+>   | b1 == e2+1 = -- keeping all the discontinuated binding of p* 
+>                  {- let r = Range b2 e1
 >                      rs = combineRange rs1 rs2
 >                  in r `seq` rs `seq` (r:rs)
->   | b2 == e1+1 = -- (Range b1 e2):(combineRange rs1 rs2)
->                  let r = Range b1 e2
+>                  -}
+>                  -- keeping only the last binding
+>                  [r1]
+>   | b2 == e1+1 = -- keeping all the discontinuated binding of p* 
+>                  {- let r = Range b1 e2
 >                      rs = combineRange rs1 rs2
 >                  in r `seq` rs `seq` (r:rs)
->   | b1 > e2+1 = -- (Range b2 e2):(combineRange (r1:rs1) rs2)
+>                  -}
+>                  -- keeping only the last binding
+>                  [r2]
+>   | b1 > e2+1 = -- keeping all the discontinuated binding of p*
+>                 {- -- (Range b2 e2):(combineRange (r1:rs1) rs2)
 >                 let rs1' = (r1:rs1)                      
 >                     rs = rs1' `seq` combineRange rs1' rs2
->                 in  rs `seq` (r2:rs)
->   | b2 > e1+1 = -- (Range b1 e1):(combineRange rs1 (r2:rs2))
+>                 in  rs `seq` (r2:rs) -}
+>                 -- keeping only the last binding
+>                 [r1]
+>   | b2 > e1+1 = -- keeping all the discontinuated binding of p*
+>                 {- -- (Range b1 e1):(combineRange rs1 (r2:rs2))
 >                 let rs2' = r2:rs2
 >                     rs = rs2' `seq` combineRange rs1 rs2'
->                 in rs `seq` (r1:rs)
+>                 in rs `seq` (r1:rs) -}
+>                 -- keeping only the last binding
+>                 [r2]
 >   | otherwise = error $ "unhandle combineRange:" ++ show (r1:rs1) ++ " vs " ++ show (r2:rs2)
 
 
@@ -242,12 +260,12 @@ The shapes of the input/output Pat and SBinder should be identical.
 >         ; let rm = extract p1
 >               f !i !sb = {-# SCC "dPat0/f7" #-} case sb of
 >                 { SPair !sb1 !sb2 !cf ->
->                     let sb1' = rm sb1
->                         sb1'' = f1 i sb1
->                         cf' = sb1' `seq` sb1' `combineCF` cf
->                         sb2' = f2 i sb2
->                         sb2'' = sb2' `seq` cf' `seq` carryForward cf' sb2'
->                     in sb1'' `seq` cf `seq` sb2 `seq` sb2'' `seq` SChoice [ SPair sb1'' sb2 cf, sb2'' ] emptyCF }
+>                     let sb1' =  {-# SCC "dPat0/f7/rm" #-} rm sb1
+>                         sb1'' = {-# SCC "dPat0/f7/f1" #-} f1 i sb1
+>                         cf' = {-# SCC "dPat0/f7/combineCF" #-}sb1' `seq` sb1' `combineCF` cf
+>                         sb2' = {-# SCC "dPat0/f7/f2" #-}f2 i sb2
+>                         sb2'' = {-# SCC "dPat0/f7/carryForward" #-}sb2' `seq` cf' `seq` carryForward cf' sb2'
+>                     in {-# SCC "dPat0/f7/in" #-} sb1'' `seq` cf `seq` sb2 `seq` sb2'' `seq` SChoice [ SPair sb1'' sb2 cf, sb2'' ] emptyCF }
 >         ; (!p',!f') <- simpFix (PChoice [PPair p1' p2, p2'] Greedy) 
 >         ; if (p' == (PChoice [PPair p1' p2, p2'] Greedy))
 >           then return (PChoice [PPair p1' p2, p2'] Greedy, f)
@@ -443,10 +461,10 @@ invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat i
 >          | isEpsilon p1'          -> 
 >              let !rm = extract p1
 >                  f !i !sb = {-# SCC "simp/f1" #-} case sb of
->                     { SPair !sb1 !sb2 !cf -> let cf' = rm sb1 
->                                                  cf'' =  cf' `seq` cf' `combineCF` cf
->                                                  sb2' = sb2 `seq` f2' i sb2
->                                              in cf'' `seq` sb2' `seq` carryForward cf'' sb2' }
+>                     { SPair !sb1 !sb2 !cf -> let cf' = {-# SCC "simp/f1/rm" #-} rm sb1 
+>                                                  cf'' =  {-# SCC "simp/f1/combineCF" #-} cf' `seq` cf' `combineCF` cf
+>                                                  sb2' = {-# SCC "simp/f1/f2'" #-}sb2 `seq` f2' i sb2
+>                                              in {-# SCC "simp/f1/in" #-} cf'' `seq` sb2' `seq` carryForward cf'' sb2' }
 >              in return (p2',f)
 >          | isEpsilon p2'          ->
 >              let !rm = extract p2
@@ -539,7 +557,10 @@ extract a carry forward from the sbinder
 >           let e' =  e + 1    
 >           in e' `seq` case e' of
 >              _ | pos == e' -> let r = Range b e' in r `seq` rs `seq` (r:rs)
->                | pos > e'  -> let r = Range pos pos in r `seq` (r:rs_)
+>                | pos > e'  -> -- keeping all the discontinuated binding of p*
+>                               -- let r = Range pos pos in r `seq` (r:rs_)
+>                               -- only keep the last binding
+>                               let r = Range pos pos in r `seq` [r]
 >                | otherwise -> error "impossible, the current letter position is smaller than the last recorded letter" 
 > updateRange !pos [] = let r = Range pos pos in r `seq` [r]
 
@@ -571,6 +592,33 @@ extract a carry forward from the sbinder
 
 get all envs from the sbinder
 
+> sbinderToEnv :: Pat -> SBinder -> [Env]
+> sbinderToEnv p sb = 
+>   let cfs = {-# SCC "sbinderToEnv/sbinderToEnv'" #-} sbinderToEnv' p sb
+>   in map IM.toList cfs
+
+> sbinderToEnv' :: Pat -> SBinder -> [CarryForward]
+> sbinderToEnv' _ (SChoice [] _) = []
+> sbinderToEnv' (PChoice (p:ps) g) (SChoice (sb:sbs) cf) 
+>   | posEpsilon (strip p) = 
+>   do { cf' <- sbinderToEnv' p sb
+>      ; cf `seq` cf' `seq` return (combineCF cf cf') }
+>   | otherwise = sbinderToEnv' (PChoice ps g) (SChoice sbs cf)
+> sbinderToEnv' (PPair p1 p2) (SPair sb1 sb2 cf) =
+>   do { cf1 <- sbinderToEnv' p1 sb1 
+>      ; cf2 <- sbinderToEnv' p2 sb2
+>      ; cf1 `seq` cf2 `seq` cf `seq` return (combineCFs [cf1,cf2,cf]) }
+> sbinderToEnv' (PVar x _ p) (SVar sr sb cf) 
+>   | posEpsilon (strip p) = do { cf' <- sbinderToEnv' p sb
+>                               ; let cf'' = cf `seq` sr `seq` insertCF sr cf'
+>                               ; cf' `seq` cf'' `seq` return (cf' `combineCF` cf'') }
+>   | otherwise = []
+> sbinderToEnv' (PStar _ _) (SStar cf) = return cf
+> sbinderToEnv' (PE _) (SRE cf) = return cf
+> sbinderToEnv' p sb = error $ (pretty p) ++ " and " ++ (show sb)
+
+
+> {-
 > sbinderToEnv :: Pat -> SBinder -> [Env]
 > sbinderToEnv p sb = 
 >   let envs = {-# SCC "sbinderToEnv/sbinderToEnv'" #-} sbinderToEnv' p sb
@@ -612,6 +660,7 @@ get all envs from the sbinder
 >     { Just _ -> let im' = IM.update (\rs' -> Just $ rs ++ rs') i im
 >                 in sortEnvByVar' srgs im' 
 >     ; Nothing -> sortEnvByVar' srgs (IM.insert i rs im) }  
+> -}
 
 
 > type DfaTable = IM.IntMap (Int, Int -> SBinder -> SBinder, SBinder -> [Env])
@@ -644,12 +693,12 @@ get all envs from the sbinder
 testing 
 
 > testp = 
->    let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$"-- "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" -- "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
 >    in pp
 
 
 > testp2 = 
->    let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$"-- "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" -- "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
 >        fb                    = followBy pp
 >    in (pp,fb,posixBnd)
 
