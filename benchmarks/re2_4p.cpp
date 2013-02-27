@@ -16,17 +16,20 @@ int main(int argc, char* argv[]) {
   string x;
   string y;
   string z;
-
+  string w;
   p = argv[1];
   s = "";
-   
+  
   RE2 re(p,RE2::POSIX);
 
   while (!infile.eof())
     { 
       getline(infile,s);
-      if(RE2::FullMatch(s, re, &x, &y, &z)) {
-	cout << x << ";" << y << ";" << z << endl;
+      
+      if(RE2::FullMatch(s, re, &x, &y, &z, &w)) {
+	cout << x << ";" << y << ";" << z << ";" <<  w << ";" <<endl; 
+      } else {
+	cout << "No matched" << endl;
       }
     }
   infile.close();
