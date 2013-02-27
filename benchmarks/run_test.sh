@@ -46,14 +46,14 @@ rm results/HSPOSIX9*.tsv
 # case 10
 
 rm results/DERIV10.tsv
-./Timer ./DERIV "^((A|AB)(BAA|A)(AC|C))*$" results/DERIV10.tsv data/abaac1 data/abaac2 data/abaac3 data/abaac4 data/abaac5 data/abaac6 data/abaac7 data/abaac8 data/abaac9 data/abaac10 
+./Timer ./DERIV "^(((A|AB)(BAA|A))(AC|C))*$" results/DERIV10.tsv data/abaac1 data/abaac2 data/abaac3 data/abaac4 data/abaac5 data/abaac6 data/abaac7 data/abaac8 data/abaac9 data/abaac10 
 
 rm results/TDFA10.tsv
-./Timer ./TDFA "^((A|AB)(BAA|A)(AC|C))*$" results/TDFA10.tsv data/abaac1 data/abaac2 data/abaac3 data/abaac4 data/abaac5 data/abaac6 data/abaac7 data/abaac8 data/abaac9 data/abaac10 
+./Timer ./TDFA "^(((A|AB)(BAA|A))(AC|C))*$" results/TDFA10.tsv data/abaac1 data/abaac2 data/abaac3 data/abaac4 data/abaac5 data/abaac6 data/abaac7 data/abaac8 data/abaac9 data/abaac10 
 
 rm results/re2_10.tsv
-./Timer ./re2_4p "^((A|AB)(BAA|A)(AC|C))*$" results/re2_10.tsv data/abaac1 data/abaac2 data/abaac3 data/abaac4 data/abaac5 data/abaac6 data/abaac7 data/abaac9 data/abaac9 data/abaac10 
+./Timer ./re2_5p "^(((A|AB)(BAA|A))(AC|C))*$" results/re2_10.tsv data/abaac1 data/abaac2 data/abaac3 data/abaac4 data/abaac5 data/abaac6 data/abaac7 data/abaac9 data/abaac9 data/abaac10 
 
 
 rm results/HSPOSIX10.tsv
-./Timer ./HSPOSIX "^((A|AB)(BAA|A)(AC|C))*$" results/HSPOSIX10.tsv data/abaac1 data/abaac2 data/abaac3 data/abaac4 data/abaac5 data/abaac6 data/abaac7 data/abaac8 data/abaac9 data/abaac10 
+./Timer ./HSPOSIX "^(((A|AB)(BAA|A))(AC|C))*$" results/HSPOSIX10.tsv data/abaac1 data/abaac2 data/abaac3 data/abaac4 data/abaac5 data/abaac6 data/abaac7 data/abaac8 data/abaac9 data/abaac10 

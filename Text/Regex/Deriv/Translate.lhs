@@ -85,6 +85,12 @@ getters and putters
 >              ; return (posix st)
 >              }
 
+
+> isPosixBinder :: GI -> State TState Bool
+> isPosixBinder gi =  do { st <- get
+>                        ; return (IM.member gi (posix_binder st)) 
+>                        }                           
+
 > addPosixBinder :: Int -> State TState ()
 > addPosixBinder i = do { st <- get
 >                       ; let bs = posix_binder st
@@ -188,7 +194,16 @@ getters and putters
 >                }
 > -}
 
-
+> {-| 'adhoc_simp' make some simplification for p' on the fly for nested x :: p'
+>     removing immediate nested PVar created for posix
+> -}
+> adhocSimp :: Pat -> State TState Pat 
+> adhocSimp q@(PChoice [ (PVar x _ p) ] g) = do 
+>   { b <- isPosixBinder x
+>   ; if b 
+>     then return p 
+>     else return q }
+> adhocSimp q = return q
 
 > {-| 'p_trans' implementes the rule 'e ~>_p p'
 > convention:
@@ -211,7 +226,8 @@ getters and putters
 >       do { i <- getIncGI
 >          ; -- p <- trans e
 >          ; p <- trans' e -- no need to go through trans which possible tag p with a posix var
->          ; return ( PVar i [] p)
+>          ; p' <- adhocSimp p
+>          ; return ( PVar i [] p')
 >          }
 >       {-
 >         e ~> p
