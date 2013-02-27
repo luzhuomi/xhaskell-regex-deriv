@@ -152,6 +152,8 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 >                 in rs `seq` (r1:rs) -}
 >                 -- keeping only the last binding
 >                 [r2]
+>   | b1 >= b2 && e1 <= e2 = [r2]
+>   | b2 >= b1 && e2 <= e1 = [r1]
 >   | otherwise = error $ "unhandle combineRange:" ++ show (r1:rs1) ++ " vs " ++ show (r2:rs2)
 
 
@@ -610,8 +612,8 @@ get all envs from the sbinder
 >      ; cf1 `seq` cf2 `seq` cf `seq` return (combineCFs [cf1,cf2,cf]) }
 > sbinderToEnv' (PVar x _ p) (SVar sr sb cf) 
 >   | posEpsilon (strip p) = do { cf' <- sbinderToEnv' p sb
->                               ; let cf'' = cf `seq` sr `seq` insertCF sr cf'
->                               ; cf' `seq` cf'' `seq` return (cf' `combineCF` cf'') }
+>                               ; let cf'' = cf' `seq` sr `seq` insertCF sr cf'
+>                               ; cf `seq` cf'' `seq` return (cf `combineCF` cf'') }
 >   | otherwise = []
 > sbinderToEnv' (PStar _ _) (SStar cf) = return cf
 > sbinderToEnv' (PE _) (SRE cf) = return cf
@@ -693,12 +695,12 @@ get all envs from the sbinder
 testing 
 
 > testp = 
->    let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" -- "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix  "^(((A|AB)(BAA|A))(AC|C))$" -- "^((A)|(AB)|(B))*$" --"^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
 >    in pp
 
 
 > testp2 = 
->    let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" -- "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix "^(((A|AB)(BAA|A))(AC|C))$" -- "^((A)|(AB)|(B))*$" -- "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
 >        fb                    = followBy pp
 >    in (pp,fb,posixBnd)
 
