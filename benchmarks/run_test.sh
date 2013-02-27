@@ -57,3 +57,19 @@ rm results/re2_10.tsv
 
 rm results/HSPOSIX10.tsv
 ./Timer ./HSPOSIX "^(((A|AB)(BAA|A))(AC|C))*$" results/HSPOSIX10.tsv data/abaac1 data/abaac2 data/abaac3 data/abaac4 data/abaac5 data/abaac6 data/abaac7 data/abaac8 data/abaac9 data/abaac10 
+
+
+# case 11
+
+rm results/DERIV11.tsv
+./Timer ./DERIV "^((A)|(B)|(C)|(D)|(AB)|(BC)|(CD)|(ABC)|(BCD)|(ABCD))*$" results/DERIV11.tsv data/abcd1 data/abcd2 data/abcd3 data/abcd4 data/abcd5 data/abcd6 data/abcd7 data/abcd8 data/abcd9 data/abcd10 
+
+rm results/TDFA11.tsv
+./Timer ./TDFA "^((A)|(B)|(C)|(D)|(AB)|(BC)|(CD)|(ABC)|(BCD)|(ABCD))*$" results/TDFA11.tsv data/abcd1 data/abcd2 data/abcd3 data/abcd4 data/abcd5 data/abcd6 data/abcd7 data/abcd8 data/abcd9 data/abcd10 
+
+rm results/re2_11.tsv
+./Timer ./re2_5p "^((A)|(B)|(C)|(D)|(AB)|(BC)|(CD)|(ABC)|(BCD)|(ABCD))*$" results/re2_11.tsv data/abcd1 data/abcd2 data/abcd3 data/abcd4 data/abcd5 data/abcd6 data/abcd7 data/abcd9 data/abcd9 data/abcd10 
+
+
+rm results/HSPOSIX11.tsv
+./Timer ./HSPOSIX "^((A)|(B)|(C)|(D)|(AB)|(BC)|(CD)|(ABC)|(BCD)|(ABCD))*$" results/HSPOSIX11.tsv data/abcd1 data/abcd2 data/abcd3 data/abcd4 data/abcd5 data/abcd6 data/abcd7 data/abcd8 data/abcd9 data/abcd10 

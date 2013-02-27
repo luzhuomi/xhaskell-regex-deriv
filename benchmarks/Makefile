@@ -2,6 +2,7 @@ all:
 	g++ -I/usr/local/include/ -L/usr/local/lib/ re2_4p.cpp -lre2 -pthread -o re2_4p
 	g++ -I/usr/local/include/ -L/usr/local/lib/ re2_5p.cpp -lre2 -pthread -o re2_5p
 	g++ -I/usr/local/include/ -L/usr/local/lib/ re2_10p.cpp -lre2 -pthread -o re2_10p
+	g++ -I/usr/local/include/ -L/usr/local/lib/ re2_11p.cpp -lre2 -pthread -o re2_11p
 	ghc --make -O2 -rtsopts -fforce-recomp DERIV.lhs
 	ghc --make -O2 -rtsopts -fforce-recomp TDFA.lhs
 	ghc --make -O2 -rtsopts -fforce-recomp HSPOSIX.lhs

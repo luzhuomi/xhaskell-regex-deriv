@@ -1,3 +1,8 @@
-1) make all
-2) generate_data.sh
-3) run_test.sh
+# 1) 
+make all
+# 2) 
+bash generate_data.sh
+# make a cup of coffee! :)
+# 3) 
+bash run_test.sh
+# make another cup of coffee! :)
