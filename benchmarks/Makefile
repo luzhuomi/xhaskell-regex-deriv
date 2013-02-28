@@ -11,5 +11,5 @@ all:
 	ghc --make -O2 Timer.hs
 clean:
 	rm *.o *.hi
-	rm re2 DERIV TDFA HSPOSIX
+	rm re2_4p re2_5p re2_10p re2_11p DERIV TDFA HSPOSIX
 

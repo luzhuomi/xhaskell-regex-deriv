@@ -28,17 +28,17 @@ rm results/HSPOSIX8*.tsv
 
 # case 9
 
-rm results/DERIV9*.tsv
+rm results/DERIV9.tsv
 ./Timer ./DERIV "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$" results/DERIV9.tsv data/a_to_g1 data/a_to_g2 data/a_to_g3 data/a_to_g4 data/a_to_g5 data/a_to_g6 data/a_to_g7 data/a_to_g8 data/a_to_g9 data/a_to_g10 
 
-rm results/TDFA9*.tsv
+rm results/TDFA9.tsv
 ./Timer ./TDFA "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$" results/TDFA9.tsv data/a_to_g1 data/a_to_g2 data/a_to_g3 data/a_to_g4 data/a_to_g5 data/a_to_g6 data/a_to_g7 data/a_to_g8 data/a_to_g9 data/a_to_g10 
 
-rm results/re2_9*.tsv
+rm results/re2_9.tsv
 ./Timer ./re2_10p "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$" results/re2_9.tsv data/a_to_g1 data/a_to_g2 data/a_to_g3 data/a_to_g4 data/a_to_g5 data/a_to_g6 data/a_to_g7 data/a_to_g9 data/a_to_g9 data/a_to_g10 
 
 
-rm results/HSPOSIX9*.tsv
+rm results/HSPOSIX9.tsv
 ./Timer ./HSPOSIX "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$" results/HSPOSIX9.tsv data/a_to_g1 data/a_to_g2 data/a_to_g3 data/a_to_g4 data/a_to_g5 data/a_to_g6 data/a_to_g7 data/a_to_g8 data/a_to_g9 data/a_to_g10 
 
 
@@ -68,7 +68,7 @@ rm results/TDFA11.tsv
 ./Timer ./TDFA "^((A)|(B)|(C)|(D)|(AB)|(BC)|(CD)|(ABC)|(BCD)|(ABCD))*$" results/TDFA11.tsv data/abcd1 data/abcd2 data/abcd3 data/abcd4 data/abcd5 data/abcd6 data/abcd7 data/abcd8 data/abcd9 data/abcd10 
 
 rm results/re2_11.tsv
-./Timer ./re2_5p "^((A)|(B)|(C)|(D)|(AB)|(BC)|(CD)|(ABC)|(BCD)|(ABCD))*$" results/re2_11.tsv data/abcd1 data/abcd2 data/abcd3 data/abcd4 data/abcd5 data/abcd6 data/abcd7 data/abcd9 data/abcd9 data/abcd10 
+./Timer ./re2_11p "^((A)|(B)|(C)|(D)|(AB)|(BC)|(CD)|(ABC)|(BCD)|(ABCD))*$" results/re2_11.tsv data/abcd1 data/abcd2 data/abcd3 data/abcd4 data/abcd5 data/abcd6 data/abcd7 data/abcd9 data/abcd9 data/abcd10 
 
 
 rm results/HSPOSIX11.tsv
