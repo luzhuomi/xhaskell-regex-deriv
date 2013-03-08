@@ -112,9 +112,10 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 >                 in rs `seq` (r1:rs) -}
 >                 -- keeping only the last binding
 >                 [r2]
->   | b1 >= b2 && e1 <= e2 = [r2]
+>   | otherwise = [r1] -- IMPORTANT: the application of combineCF cf1 cf2 always maintain the order where cf1 is the left most choice
+>   {- | b1 >= b2 && e1 <= e2 = [r2]
 >   | b2 >= b1 && e2 <= e1 = [r1]
->   | otherwise = error $ "unhandle combineRange:" ++ show (r1:rs1) ++ " vs " ++ show (r2:rs2)
+>   | otherwise = error $ "unhandle combineRange:" ++ show (r1:rs1) ++ " vs " ++ show (r2:rs2) -}
 
 
 
@@ -612,7 +613,10 @@ get all envs from the sbinder
 testing 
 
 > testp = 
->    let (Right (pp,posixBnd)) = parsePatPosix  "^(((A|AB)(BAA|A))(AC|C))$" -- "^((A)|(AB)|(B))*$" --"^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
+>    -- let (Right (pp,posixBnd)) = parsePatPosix "(...?.?)*" 
+>    -- let (Right (pp,posixBnd)) = parsePatPosix "^(((A|AB)(BAA|A))(AC|C))$" 
+>    -- let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" 
+>    let (Right (pp,posixBnd)) = parsePatPosix "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
 >    in pp
 
 
