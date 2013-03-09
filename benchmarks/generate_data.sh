@@ -10,3 +10,6 @@ for i in 1 2 3 4 5 6 7 8 9 10; do ./gen2 "ABAAC" ${i}00000 > data/abaac${i} ; do
 
 
 for i in 1 2 3 4 5 6 7 8 9 10; do ./gen2 "ABCD" ${i}00000 > data/abcd${i} ; done
+
+
+for i in 17 18 19 20 21; do ./gen3 $i > data/aabc${i} ; done

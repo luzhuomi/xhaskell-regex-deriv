@@ -73,3 +73,38 @@ rm results/re2_11.tsv
 
 rm results/HSPOSIX11.tsv
 ./Timer ./HSPOSIX "^((A)|(B)|(C)|(D)|(AB)|(BC)|(CD)|(ABC)|(BCD)|(ABCD))*$" results/HSPOSIX11.tsv data/abcd1 data/abcd2 data/abcd3 data/abcd4 data/abcd5 data/abcd6 data/abcd7 data/abcd8 data/abcd9 data/abcd10 
+
+
+# case 12
+rm results/DERIV12.tsv
+./Timer ./DERIV "^(a|aa)*b$" results/DERIV12.tsv data/aabc17 data/aabc18 data/aabc19 data/aabc20 data/aabc21
+
+
+rm results/TDFA12.tsv
+./Timer ./TDFA "^(a|aa)*b$" results/TDFA12.tsv data/aabc17 data/aabc18 data/aabc19 data/aabc20 data/aabc21
+
+
+rm results/re2_12.tsv
+./Timer ./re2_1p "^(a|aa)*b$" results/re2_12.tsv data/aabc17 data/aabc18 data/aabc19 data/aabc20 data/aabc21
+
+
+rm results/HSPOSIX12.tsv
+./Timer ./HSPOSIX "^(a|aa)*b$" results/HSPOSIX12.tsv data/aabc17 data/aabc18 data/aabc19 data/aabc20 data/aabc21
+
+
+
+# case 13
+rm results/DERIV13.tsv
+./Timer ./DERIV "^(a|aa)*c$" results/DERIV13.tsv data/aabc17 data/aabc18 data/aabc19 data/aabc20 data/aabc21
+
+
+rm results/TDFA13.tsv
+./Timer ./TDFA "^(a|aa)*c$" results/TDFA13.tsv data/aabc17 data/aabc18 data/aabc19 data/aabc20 data/aabc21
+
+
+rm results/re2_13.tsv
+./Timer ./re2_1p "^(a|aa)*c$" results/re2_13.tsv data/aabc17 data/aabc18 data/aabc19 data/aabc20 data/aabc21
+
+
+rm results/HSPOSIX13.tsv
+./Timer ./HSPOSIX "^(a|aa)*c$" results/HSPOSIX13.tsv data/aabc17 data/aabc18 data/aabc19 data/aabc20 data/aabc21
