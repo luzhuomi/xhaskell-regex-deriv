@@ -67,56 +67,44 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 >    ; Nothing -> IM.insert k r cf }
 
 > combineRange :: [Range] -> [Range] -> [Range]
+> -- combineRange rs1 rs2 = rs1
+> combineRange ((r1@(Range b1 e1)):rs1) ((r2@(Range b2 e2)):rs2) 
+>   | b1 == b2 = if e1 >= e2 
+>                then [r1]
+>                else [r2]
+>   | b1 > b2 = [r1]
+>   | otherwise = [r2]
+
+> {-
 > combineRange [] rs2 = rs2
 > combineRange rs1 [] = rs1
 > combineRange ((r1@(Range b1 e1)):rs1) ((r2@(Range b2 e2)):rs2) 
 >   | b1 == b2 && e1 >= e2 = -- keeping all the discontinuated binding of p* 
->                            {-
 >                            let rs = combineRange rs1 rs2
 >                            in rs `seq` (r1:rs) 
->                            -}
->                            -- keeping only the last binding
->                            [r1]
 >   | b1 == b2 && e2 >= e1 = -- keeping all the discontinuated binding of p*
->                            {-  
 >                            let rs = combineRange rs1 rs2
 >                            in rs `seq` (r2:rs)
->                            -}
->                            -- keeping only the last binding
->                            [r2]
 >   | b1 == e2+1 = -- keeping all the discontinuated binding of p* 
->                  {- let r = Range b2 e1
+>                  let r = Range b2 e1
 >                      rs = combineRange rs1 rs2
 >                  in r `seq` rs `seq` (r:rs)
->                  -}
->                  -- keeping only the last binding
->                  [r1]
 >   | b2 == e1+1 = -- keeping all the discontinuated binding of p* 
->                  {- let r = Range b1 e2
+>                  let r = Range b1 e2
 >                      rs = combineRange rs1 rs2
 >                  in r `seq` rs `seq` (r:rs)
->                  -}
->                  -- keeping only the last binding
->                  [r2]
 >   | b1 > e2+1 = -- keeping all the discontinuated binding of p*
->                 {- -- (Range b2 e2):(combineRange (r1:rs1) rs2)
+>                 -- (Range b2 e2):(combineRange (r1:rs1) rs2)
 >                 let rs1' = (r1:rs1)                      
 >                     rs = rs1' `seq` combineRange rs1' rs2
->                 in  rs `seq` (r2:rs) -}
->                 -- keeping only the last binding
->                 [r1]
+>                 in  rs `seq` (r2:rs) 
 >   | b2 > e1+1 = -- keeping all the discontinuated binding of p*
->                 {- -- (Range b1 e1):(combineRange rs1 (r2:rs2))
+>                 -- (Range b1 e1):(combineRange rs1 (r2:rs2))
 >                 let rs2' = r2:rs2
 >                     rs = rs2' `seq` combineRange rs1 rs2'
->                 in rs `seq` (r1:rs) -}
->                 -- keeping only the last binding
->                 [r2]
->   | otherwise = [r1] -- IMPORTANT: the application of combineCF cf1 cf2 always maintain the order where cf1 is the left most choice
->   {- | b1 >= b2 && e1 <= e2 = [r2]
->   | b2 >= b1 && e2 <= e1 = [r1]
->   | otherwise = error $ "unhandle combineRange:" ++ show (r1:rs1) ++ " vs " ++ show (r2:rs2) -}
-
+>                 in rs `seq` (r1:rs) 
+>   | otherwise = error ("unhandled combineRange " ++ r1 ++ " vs " ++ r2) 
+> -}
 
 
 
@@ -284,7 +272,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 > dPat0 (PChoice !ps g) l = 
 >    let pfs = map (\p -> p `seq` dPat0 p l) ps
 >        nubPF :: [[(Pat, Int -> SBinder -> SBinder)]] -> [(Pat, Int -> SBinder -> SBinder)] 
->        nubPF pfs = nub2Choice pfs M.empty 
+>        nubPF pfs = {-# SCC "dPat0/nubPF" #-}  nub2Choice pfs M.empty 
 >    in do 
 >    { (!p,!f) <- pfs `seq` nubPF pfs
 >    ; (!p',!f') <- simpFix p
@@ -612,7 +600,8 @@ get all envs from the sbinder
 
 testing 
 
-> testp = 
+> testp =
+>    -- let (Right (pp,posixBnd)) = parsePatPosix "(.)*" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "(...?.?)*" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^(((A|AB)(BAA|A))(AC|C))$" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" 
