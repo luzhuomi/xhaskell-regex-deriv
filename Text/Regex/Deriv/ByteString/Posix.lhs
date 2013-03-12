@@ -24,7 +24,7 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 
 
 > import System.IO.Unsafe
-
+> import Data.IORef
 
 > import Data.List 
 > import Data.Char (ord)
@@ -135,11 +135,17 @@ The invariance:
 The shapes of the input/output Pat and SBinder should be identical.
 
 
-
+> dPat0C :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)]
+> dPat0C p c = 
+>   case lookupDCache p c of  
+>    { Nothing -> let r = dPat0 p c 
+>                     io = insertDCache p c r
+>                 in io `seq` r
+>    ; Just r -> r }  
 
 > dPat0 :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)] -- the result is always singleton or empty
 > dPat0 y@(PVar x w p) l = 
->    do { (!p',!f) <- dPat0 p l  
+>    do { (!p',!f) <- dPat0C p l  
 >       ; let f' !i !sb = {-# SCC "dPat0/f0" #-} case sb of 
 >                       { SVar (!v,!r) !sb' !cf -> let sb'' = {-# SCC "dPat0/f0/sb''" #-} f i sb' 
 >                                                      r' =  {-# SCC "dPat0/f0/updateRange" #-} updateRange i r
@@ -161,7 +167,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >       if null pds then mzero
 >       else return (PE pds, (\_ !sb -> {-# SCC "dPat0/id0" #-}  sb) )
 > dPat0 (PStar p g) l = 
->    do { (!p', !f) <- dPat0 p l        
+>    do { (!p', !f) <- dPat0C p l        
 >       ; let emp = toSBinder p                     
 >       ; emp `seq` 
 >         return (PPair p' (PStar p g), (\i sb -> {-# SCC "dPat0/f1" #-} i `seq` sb `seq` 
@@ -171,8 +177,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >       }
 > dPat0 (PPair !p1 !p2) l 
 >    | (posEpsilon (strip p1)) =
->       let pf1 = dPat0 p1 l                           
->           pf2 = dPat0 p2 l
+>       let pf1 = dPat0C p1 l                           
+>           pf2 = dPat0C p2 l
 >       in case (pf1, pf2) of
 >       { ([], []) -> mzero
 >       ; ([], [(!p2',!f2')]) ->
@@ -204,8 +210,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                                              in sb' `seq` (f1'' i sb')) 
 >                }
 >       ; _ | isGreedy p1 -> do 
->         { (!p1',!f1) <- dPat0 p1 l
->         ; (!p2',!f2) <- dPat0 p2 l
+>         { (!p1',!f1) <- pf1
+>         ; (!p2',!f2) <- pf2
 >         ; let rm = extract p1
 >               f !i !sb = {-# SCC "dPat0/f7" #-} case sb of
 >                 { SPair !sb1 !sb2 !cf ->
@@ -223,8 +229,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                                     in sb' `seq`  (f' i sb'))          
 >         }
 >           | otherwise -> do 
->         { (!p1',!f1) <- dPat0 p1 l
->         ; (!p2',!f2) <- dPat0 p2 l
+>         { (!p1',!f1) <- pf1
+>         ; (!p2',!f2) <- pf2
 >         ; let rm = extract p1
 >               f !i !sb = {-# SCC "dPat0/f9" #-} case sb of
 >                 { SPair !sb1 !sb2 !cf ->
@@ -244,7 +250,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >         }
 >       }
 >    | otherwise =
->       do { (!p1',!f1) <- dPat0 p1 l
+>       do { (!p1',!f1) <- dPat0C p1 l
 >          ; let f !i !sb = {-# SCC "dPat0/f11" #-} case sb of { SPair !sb1 !sb2 !cf -> 
 >                                                                let sb1' = f1 i sb1
 >                                                                in sb1' `seq` sb2 `seq` SPair sb1' sb2 cf } 
@@ -257,7 +263,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >          }
 > dPat0 (PChoice [] g) l = mzero
 > dPat0 y@(PChoice [!p] g) l = do
->       { (!p',!f') <- dPat0 p l
+>       { (!p',!f') <- dPat0C p l
 >       ; let f !i !sb = {-# SCC "dPat0/f13" #-} 
 >                        case sb of { SChoice [!sb'] !cf -> let sb'' =  (f' i sb')  in sb'' `seq` carryForward cf sb''
 >                                   ; senv -> error $ "invariance is broken: " ++ pretty y ++ " vs "  ++ show senv 
@@ -270,7 +276,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                                    in sb' `seq` (f'' i sb'))                     
 >       }
 > dPat0 (PChoice !ps g) l = 
->    let pfs = map (\p -> p `seq` dPat0 p l) ps
+>    let pfs = map (\p -> p `seq` dPat0C p l) ps
 >        nubPF :: [[(Pat, Int -> SBinder -> SBinder)]] -> [(Pat, Int -> SBinder -> SBinder)] 
 >        nubPF pfs = {-# SCC "dPat0/nubPF" #-}  nub2Choice pfs M.empty 
 >    in do 
@@ -282,6 +288,8 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                                let sb' =  i `seq` sb `seq` f i sb 
 >                                in sb' `seq`  (f' i sb')) 
 >    }
+
+
 
 nub2Choice: turns a list of pattern x coercion pairs into a pchoice and a func, duplicate patterns (hence conflicting matches) are removed.
 
@@ -384,10 +392,91 @@ pfs .... todo
 >         }
 >       }
 
+unsafe cache
+
+> 
+> dPat0Cache :: IORef (M.Map (Pat,Char) [(Pat, Int -> SBinder -> SBinder)])
+> dPat0Cache = unsafePerformIO $ do { cref <- newIORef M.empty 
+>                                   ; return cref }
+
+> insertDCache :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)] -> ()
+> insertDCache p c r = unsafePerformIO $ do { m <- readIORef dPat0Cache
+>                                           ; let m' = M.insert (p,c) r m
+>                                           ; writeIORef dPat0Cache m' }
+
+> lookupDCache :: Pat -> Char -> Maybe [(Pat, Int -> SBinder -> SBinder)]
+> lookupDCache p c = unsafePerformIO $ do { m <- readIORef dPat0Cache
+>                                         ; case M.lookup (p,c) m of
+>                                           { Nothing -> return Nothing 
+>                                           ; Just x  -> return (Just x) } }
+> 
+
+
+> 
+> simpCache :: IORef (M.Map Pat [(Pat, Int -> SBinder -> SBinder)])
+> simpCache = unsafePerformIO $ do { cref <- newIORef M.empty 
+>                                  ; return cref }
+
+> insertSCache :: Pat -> [(Pat, Int -> SBinder -> SBinder)] -> ()
+> insertSCache p r = unsafePerformIO $ do { m <- readIORef simpCache
+>                                         ; let m' = M.insert p r m
+>                                         ; writeIORef simpCache m' }
+
+> lookupSCache :: Pat -> Maybe [(Pat, Int -> SBinder -> SBinder)]
+> lookupSCache p = unsafePerformIO $ do { m <- readIORef simpCache
+>                                       ; case M.lookup p m of
+>                                         { Nothing -> return Nothing 
+>                                         ; Just x  -> return (Just x) } }
+> 
+
+
+> {- slowest
+> simpCache :: IORef (IM.IntMap [(Pat, Int -> SBinder -> SBinder)])
+> simpCache = unsafePerformIO $ do { cref <- newIORef IM.empty 
+>                                  ; return cref }
+
+> cache :: Pat -> [(Pat, Int -> SBinder -> SBinder)] -> ()
+> cache p r = unsafePerformIO $ do { m <- readIORef simpCache
+>                                  ; let m' = IM.insert (mkKey p) r m
+>                                  ; writeIORef simpCache m' }
+
+> lookupCache :: Pat -> Maybe [(Pat, Int -> SBinder -> SBinder)]
+> lookupCache p = unsafePerformIO $ do { m <- readIORef simpCache
+>                                      ; case IM.lookup (mkKey p) m of
+>                                        { Nothing -> return Nothing 
+>                                        ; Just x  -> return (Just x) } }
+
+
+> mkKey :: Pat -> Int
+> mkKey p = let s = show p
+>           in foldl' (\i c -> i*31 + (ord c)) 0 s                
+> -}
+
+> {- collision
+> simpCache :: IORef (D.Dictionary [(Pat, Int -> SBinder -> SBinder)])
+> simpCache = unsafePerformIO $ do { cref <- newIORef D.empty 
+>                                  ; return cref }
+
+> cache :: Pat -> [(Pat, Int -> SBinder -> SBinder)] -> ()
+> cache p r = unsafePerformIO $ do { m <- readIORef simpCache
+>                                  ; let m' = D.insertNotOverwrite p r m
+>                                  ; writeIORef simpCache m' }
+
+> lookupCache :: Pat -> Maybe [(Pat, Int -> SBinder -> SBinder)]
+> lookupCache p = unsafePerformIO $ do { m <- readIORef simpCache
+>                                      ; case D.lookup p m of
+>                                        { Nothing -> return Nothing 
+>                                        ; Just x  -> return (Just x) } }
+> -}
+> 
+
 simplification
 
+
 > simpFix :: Pat -> [(Pat, Int -> SBinder -> SBinder)]
-> simpFix p =  simp p -- simpFix' p (\i -> id) -- simpfix' seems not neccessary
+> simpFix p = 
+>   simpC p 
+> -- simpFix' p (\i -> id) -- simpfix' seems not neccessary
 
 > simpFix' p f = 
 >   case simp p of
@@ -400,11 +489,19 @@ simplification
 >   }
 
 
+> simpC :: Pat -> [(Pat, Int -> SBinder -> SBinder)]
+> simpC p = 
+>   case lookupSCache p of 
+>    { Nothing -> let r = simp p  
+>                     io = insertSCache p r
+>                 in io `seq` r
+>    ; Just r -> r }
+
 invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat input/ output
 
 > simp :: Pat -> [(Pat, Int -> SBinder -> SBinder)] -- the output list is singleton 
 > simp (PVar !x w !p) = do
->   { (!p',!f') <- simp p
+>   { (!p',!f') <- simpC p
 >   ; case p' of
 >     { _ | p == p' -> return (PVar x w p,\_ !sb -> {-# SCC "simp/id0" #-}  sb)
 >         | isPhi (strip p') -> mzero
@@ -416,8 +513,8 @@ invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat i
 >     }
 >   }
 > simp y@(PPair !p1 !p2) = do
->    { (!p1',!f1') <- simp p1
->    ; (!p2',!f2') <- simp p2
+>    { (!p1',!f1') <- simpC p1
+>    ; (!p2',!f2') <- simpC p2
 >    ; case (p1',p2') of       
 >      { _ | isPhi p1' || isPhi p2' -> mzero
 >          | isEpsilon p1'          -> 
@@ -447,7 +544,7 @@ invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat i
 >    }
 > simp (PChoice [] g) = mzero
 > simp (PChoice [!p] !g) = do 
->    { (!p',!f') <- simp p
+>    { (!p',!f') <- simpC p
 >    ; if isPhi p' 
 >      then mzero
 >      else 
@@ -457,7 +554,7 @@ invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat i
 >       in return (p',f)
 >    }
 > simp (PChoice !ps !g) = 
->    let pfs = map simp ps  
+>    let pfs = map simpC ps  
 >        nubPF :: [[(Pat, Int -> SBinder -> SBinder)]] -> [(Pat, Int -> SBinder -> SBinder)] 
 >        nubPF pfs = nub2Choice pfs M.empty
 >    in pfs `seq` {-# SCC "simp/nubPF" #-} nubPF pfs
@@ -606,7 +703,7 @@ testing
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^(((A|AB)(BAA|A))(AC|C))$" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
->    let (Right (pp,posixBnd)) = parsePatPosix "^[XY]*X(.?){1,2}Y[XY]*$"
+>    let (Right (pp,posixBnd)) = parsePatPosix "^[XY]*X(.?){1,8}Y[XY]*$"
 >    in pp
 
 
@@ -647,7 +744,7 @@ mapM_ (\p -> putStrLn (show p)) (sort allStates)
 >       let 
 >           new_delta      = {-# SCC "builder/new_delta" #-} [ p `seq` p' `seq` l `seq` f' `seq` g `seq` (p,l,p',f',g) | p <- curr_pats, 
 >                                                              l <- sig, (p',f') <- {-# SCC "builder/dPat0" #-} dPat0 p l, let g = sbinderToEnv p'  ]
->           new_pats       = {-# SCC "builder/new_pats" #-} D.nub [ p' | (p,l,p',f',g) <- new_delta, not (p' `M.member` dict) ]
+>           new_pats       = {-# SCC "builder/new_pats" #-} D.nub [ p' | (p,l,p',f',g) <- new_delta, not (p' `M.member` dict) ] -- todo D.nub might cause collision
 >           (dict',max_id') = {-# SCC "builder/dict'" #-} foldl' (\(d,id) p -> (M.insert p (id+1) d, id + 1)) (dict,max_id) new_pats
 >           acc_delta_next = {-# SCC "builder/acc_delta_next" #-} acc_delta ++ (map (\(p,l,p',f,g) -> (getId dict' p, l, getId dict' p', f, g)) new_delta)
 >       in {- io `seq` -} builder sig  acc_delta_next dict' max_id' new_pats     
