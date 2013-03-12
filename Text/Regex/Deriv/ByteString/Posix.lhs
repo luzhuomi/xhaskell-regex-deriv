@@ -183,7 +183,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                          cf' = {-# SCC "dPat0/f3/cf'" #-}sb1' `seq` combineCF sb1' cf
 >                          sb2' = {-# SCC "dPat0/f3/sb2'" #-}f2' i sb2
 >                      in cf' `seq` sb2' `seq` {-# SCC "dPat0/f3/carryForward" #-} carryForward cf' sb2' }
->          in do { (!p2'',!f2'') <- simpFix p2'
+>          in do { (!p2'',!f2'') <- {-# SCC "dPat0/simpFix1" #-} simpFix p2'
 >                ; if p2'' == p2'
 >                  then return (p2', f)
 >                  else return (p2'', \i sb -> {-# SCC "dPat0/f4" #-} 
@@ -196,7 +196,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                                          let sb1' =  f1' i sb1 
 >                                          in sb1' `seq` 
 >                                             SPair sb1' sb2 cf }
->          in do { (!p1'',!f1'') <- simpFix (PPair p1' p2)
+>          in do { (!p1'',!f1'') <- {-# SCC "dPat0/simpFix2" #-} simpFix (PPair p1' p2)
 >                ; if (p1'' == (PPair p1' p2))
 >                  then return (PPair p1' p2, f)
 >                  else return (p1'', \i sb -> {-# SCC "dPat0/f6" #-} 
@@ -215,7 +215,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                         sb2' = {-# SCC "dPat0/f7/f2" #-}f2 i sb2
 >                         sb2'' = {-# SCC "dPat0/f7/carryForward" #-}sb2' `seq` cf' `seq` carryForward cf' sb2'
 >                     in {-# SCC "dPat0/f7/in" #-} sb1'' `seq` cf `seq` sb2 `seq` sb2'' `seq` SChoice [ SPair sb1'' sb2 cf, sb2'' ] emptyCF }
->         ; (!p',!f') <- simpFix (PChoice [PPair p1' p2, p2'] Greedy) 
+>         ; (!p',!f') <- {-# SCC "dPat0/simpFix3" #-}  simpFix (PChoice [PPair p1' p2, p2'] Greedy) 
 >         ; if (p' == (PChoice [PPair p1' p2, p2'] Greedy))
 >           then return (PChoice [PPair p1' p2, p2'] Greedy, f)
 >           else return (p', \i sb -> {-# SCC "dPat0/f8" #-} 
@@ -236,7 +236,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                         sb2'' = cf1' `seq` sb2' `seq` carryForward cf1' sb2'
 >                     in  sb2'' `seq` sb1'' `seq` sb2 `seq` 
 >                        SChoice [sb2'',  SPair sb1'' sb2 cf ] emptyCF }
->         ; (!p',!f') <- simpFix (PChoice [p2' , PPair p1' p2] Greedy) 
+>         ; (!p',!f') <- {-# SCC "dPat0/simpFix4" #-} simpFix (PChoice [p2' , PPair p1' p2] Greedy) 
 >         ; if (p' == (PChoice [p2' , PPair p1' p2] Greedy))
 >           then return (PChoice [p2' , PPair p1' p2] Greedy, f)
 >           else return (p', \i sb -> {-# SCC "dPat0/f10" #-} let sb' =  i `seq` sb `seq` f i sb
@@ -248,7 +248,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >          ; let f !i !sb = {-# SCC "dPat0/f11" #-} case sb of { SPair !sb1 !sb2 !cf -> 
 >                                                                let sb1' = f1 i sb1
 >                                                                in sb1' `seq` sb2 `seq` SPair sb1' sb2 cf } 
->          ; (!p',!f') <- simpFix (PPair p1' p2)
+>          ; (!p',!f') <- {-# SCC "dPat0/simpFix5" #-} simpFix (PPair p1' p2)
 >          ; if (p' == (PPair p1' p2))
 >            then return (PPair p1' p2, f)
 >            else return (p', \i sb -> {-# SCC "dPat0/f12" #-} 
@@ -262,7 +262,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >                        case sb of { SChoice [!sb'] !cf -> let sb'' =  (f' i sb')  in sb'' `seq` carryForward cf sb''
 >                                   ; senv -> error $ "invariance is broken: " ++ pretty y ++ " vs "  ++ show senv 
 >                                   }
->       ; (!p'',!f'') <- simpFix p'
+>       ; (!p'',!f'') <- {-# SCC "dPat0/simpFix6" #-} simpFix p'
 >       ; if (p'' == p')
 >         then return (p', f)
 >         else return (p'', \i sb -> {-# SCC "dPat0/f14" #-} 
@@ -275,7 +275,7 @@ The shapes of the input/output Pat and SBinder should be identical.
 >        nubPF pfs = {-# SCC "dPat0/nubPF" #-}  nub2Choice pfs M.empty 
 >    in do 
 >    { (!p,!f) <- pfs `seq` nubPF pfs
->    ; (!p',!f') <- simpFix p
+>    ; (!p',!f') <- {-# SCC "dPat0/simpFix7" #-} simpFix p
 >    ; if (p' == p) 
 >      then return (p, f)
 >      else return (p', \i sb -> {-# SCC "dPat0/f15" #-} 
@@ -460,7 +460,7 @@ invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat i
 >    let pfs = map simp ps  
 >        nubPF :: [[(Pat, Int -> SBinder -> SBinder)]] -> [(Pat, Int -> SBinder -> SBinder)] 
 >        nubPF pfs = nub2Choice pfs M.empty
->    in pfs `seq` nubPF pfs
+>    in pfs `seq` {-# SCC "simp/nubPF" #-} nubPF pfs
 > simp p = return (p,\_ !sb -> {-# SCC "simp/id1" #-} sb)
 
 
@@ -605,14 +605,22 @@ testing
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "(...?.?)*" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^(((A|AB)(BAA|A))(AC|C))$" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" 
->    let (Right (pp,posixBnd)) = parsePatPosix "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
+>    -- let (Right (pp,posixBnd)) = parsePatPosix "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix "^[XY]*X(.?){1,2}Y[XY]*$"
 >    in pp
 
 
 > testp2 = 
->    let (Right (pp,posixBnd)) = parsePatPosix "^(((A|AB)(BAA|A))(AC|C))$" -- "^((A)|(AB)|(B))*$" -- "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
+>    let (Right (pp,posixBnd)) = parsePatPosix "X(.?){1,3}Y"
 >        fb                    = followBy pp
 >    in (pp,fb,posixBnd)
+
+> testp3 = 
+>    let sig = sigmaRE (strip testp)
+>        init_dict = M.insert testp (0::Int) M.empty
+>        (delta, mapping) = builder sig [] init_dict (0::Int) [testp]
+>    in (delta,mapping)
+
 
 
 let sig = sigmaRE (strip testp)
