@@ -25,7 +25,8 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 
 > import System.IO.Unsafe
 > import Data.IORef
-> -- import qualified Data.HashTable.IO as H
+> import qualified Data.HashTable.IO as H
+> import qualified Data.Hashable as Ha
 
 
 > import Data.List 
@@ -45,9 +46,10 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 > import Text.Regex.Deriv.Common (IsPhi(..), IsEpsilon(..))
 > import Text.Regex.Deriv.Pretty (Pretty(..))
 > import Text.Regex.Deriv.Common (Range(..), Letter, PosEpsilon(..), my_hash, my_lookup, GFlag(..), IsGreedy(..), preBinder, subBinder, mainBinder)
-> import Text.Regex.Deriv.IntPattern (Pat(..), toBinder, Binder(..), strip, listifyBinder, Key(..))
+> -- import Text.Regex.Deriv.IntPattern (Pat(..), toBinder, Binder(..), strip, listifyBinder, Key(..))
+> import Text.Regex.Deriv.IntPattern (Pat(..), toBinder, Binder(..), strip, listifyBinder)
 > import Text.Regex.Deriv.Parse
-> import qualified Text.Regex.Deriv.Dictionary as D (Dictionary(..), Key(..), insertNotOverwrite, lookupAll, empty, isIn, nub, member, lookup, insert)
+> import qualified Text.Regex.Deriv.Dictionary as D (Dictionary(..), Key(..), insertNotOverwrite, lookupAll, empty, isIn, nub, member, lookup, insert) 
 
 
 
@@ -396,7 +398,7 @@ pfs .... todo
 
 unsafe cache
 
-> 
+> {- 16 6
 > dPat0Cache :: IORef (M.Map (Char,Pat) [(Pat, Int -> SBinder -> SBinder)])
 > dPat0Cache = unsafePerformIO $ do { cref <- newIORef M.empty 
 >                                   ; return cref }
@@ -413,7 +415,7 @@ unsafe cache
 >                                           ; Just x  -> return (Just x) } }
 > 
 
-
+> 
 > 
 > simpCache :: IORef (M.Map Pat [(Pat, Int -> SBinder -> SBinder)])
 > simpCache = unsafePerformIO $ do { cref <- newIORef M.empty 
@@ -429,32 +431,106 @@ unsafe cache
 >                                       ; case M.lookup p m of
 >                                         { Nothing -> return Nothing 
 >                                         ; Just x  -> return (Just x) } }
-> 
-
-
-> {-
-> type HashTable k v = H.BasicHashTable k v   --8 sec
-> simpCache :: IORef (HashTable (Pat,Char) 
 > -}
 
 
-> {- slowest
+> 
+
+> instance Ha.Hashable Pat where
+>    hashWithSalt salt (PVar x _ p) = Ha.hashWithSalt salt (Ha.hashWithSalt 1 $ Ha.hashWithSalt (Ha.hash x) p)
+>    hashWithSalt salt (PPair p1 p2) = Ha.hashWithSalt salt $ Ha.hashWithSalt 3 $ Ha.hashWithSalt (Ha.hash p1) p2
+>    hashWithSalt salt (PPlus p1 p2) = Ha.hashWithSalt salt $ Ha.hashWithSalt 5 $ Ha.hashWithSalt (Ha.hash p1) p2
+>    hashWithSalt salt (PStar p1 g) = Ha.hashWithSalt salt $ Ha.hashWithSalt 7 $ Ha.hashWithSalt (Ha.hash g) p1
+>    hashWithSalt salt (PE rs) = Ha.hashWithSalt salt $ Ha.hashWithSalt 11 $ Ha.hash rs                         
+>    hashWithSalt salt (PChoice ps g) = Ha.hashWithSalt salt $ Ha.hashWithSalt 13 $ Ha.hashWithSalt (Ha.hash g) ps
+>    hashWithSalt salt (PEmpty p) = Ha.hashWithSalt salt $ Ha.hashWithSalt 17 $ p
+
+
+> instance Ha.Hashable GFlag where 
+>    hashWithSalt salt Greedy = Ha.hashWithSalt salt (19::Int)
+>    hashWithSalt salt NotGreedy = Ha.hashWithSalt salt (23::Int)
+
+> instance Ha.Hashable RE where
+>    hashWithSalt salt Empty = Ha.hashWithSalt salt (29::Int)
+>    hashWithSalt salt (L x) = Ha.hashWithSalt salt (Ha.hashWithSalt 31 (Ha.hash x))
+>    hashWithSalt salt (Choice rs g) = Ha.hashWithSalt salt (Ha.hashWithSalt 37 (Ha.hashWithSalt (Ha.hash g) rs))
+>    hashWithSalt salt (Seq r1 r2) = Ha.hashWithSalt salt (Ha.hashWithSalt 41 (Ha.hashWithSalt (Ha.hash r1) r2))
+>    hashWithSalt salt (Star r g) = Ha.hashWithSalt salt (Ha.hashWithSalt 43 (Ha.hashWithSalt (Ha.hash g) r))
+>    hashWithSalt salt Any = Ha.hashWithSalt salt (47 ::Int)
+>    hashWithSalt salt (Not cs) = Ha.hashWithSalt salt (Ha.hashWithSalt 53 cs)
+
+
+> {-
+> type HashTable k v = H.BasicHashTable k v   --9.7 5.9
+                                                     
+> 
+> dPat0Cache :: IORef (HashTable (Char,Pat) [(Pat, Int -> SBinder -> SBinder)])
+> dPat0Cache = unsafePerformIO $ do { ht <- H.new
+>                                   ; cref <- newIORef ht
+>                                   ; return cref }
+
+
+> insertDCache :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)] -> ()
+> insertDCache p c r = unsafePerformIO $ do { ht <- {-# SCC "insertDCache/readIORef" #-} readIORef dPat0Cache
+>                                           ; {-# SCC "insertDCache/insert" #-} H.insert ht (c,p) r 
+>                                           ; {-# SCC "insertDCache/writeIORef" #-} writeIORef dPat0Cache ht }
+
+
+> lookupDCache :: Pat -> Char -> Maybe [(Pat, Int -> SBinder -> SBinder)]
+> lookupDCache p c = unsafePerformIO $ do { ht <- {-# SCC "lookupDCache/readIORef" #-} readIORef dPat0Cache
+>                                         ; {-# SCC "lookupDCache/lookup" #-} H.lookup ht (c,p) }
+> 
+
+> 
+> simpCache :: IORef (HashTable Pat [(Pat, Int -> SBinder -> SBinder)])
+> simpCache = unsafePerformIO $ do { ht <- H.new
+>                                  ; cref <- newIORef ht
+>                                  ; return cref }
+
+> insertSCache :: Pat -> [(Pat, Int -> SBinder -> SBinder)] -> ()
+> insertSCache p r = unsafePerformIO $ do { ht <- readIORef simpCache
+>                                         ; H.insert ht p r
+>                                         ; writeIORef simpCache ht }
+
+> lookupSCache :: Pat -> Maybe [(Pat, Int -> SBinder -> SBinder)]
+> lookupSCache p = unsafePerformIO $ do { ht <- readIORef simpCache
+>                                       ; H.lookup ht p }                                         
+> -}
+
+
+
+> -- slowest
+> dPat0Cache :: IORef (IM.IntMap [(Pat, Int -> SBinder -> SBinder)])
+> dPat0Cache = unsafePerformIO $ do { cref <- newIORef IM.empty 
+>                                   ; return cref }
+
+> insertDCache :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)] -> ()
+> insertDCache p c r = unsafePerformIO $ do { m <- readIORef simpCache
+>                                           ; let m' = IM.insert (Ha.hash (c,p)) r m
+>                                           ; writeIORef simpCache m' }
+
+> lookupDCache :: Pat -> Char -> Maybe [(Pat, Int -> SBinder -> SBinder)]
+> lookupDCache p c = unsafePerformIO $ do { m <- readIORef simpCache
+>                                         ; case IM.lookup (Ha.hash (c,p)) m of
+>                                            { Nothing -> return Nothing 
+>                                            ; Just x  -> return (Just x) } }
+
 > simpCache :: IORef (IM.IntMap [(Pat, Int -> SBinder -> SBinder)])
 > simpCache = unsafePerformIO $ do { cref <- newIORef IM.empty 
 >                                  ; return cref }
 
-> cache :: Pat -> [(Pat, Int -> SBinder -> SBinder)] -> ()
-> cache p r = unsafePerformIO $ do { m <- readIORef simpCache
->                                  ; let m' = IM.insert (mkKey p) r m
->                                  ; writeIORef simpCache m' }
+> insertSCache :: Pat -> [(Pat, Int -> SBinder -> SBinder)] -> ()
+> insertSCache p r = unsafePerformIO $ do { m <- readIORef simpCache
+>                                         ; let m' = IM.insert (Ha.hash p) r m
+>                                         ; writeIORef simpCache m' }
 
-> lookupCache :: Pat -> Maybe [(Pat, Int -> SBinder -> SBinder)]
-> lookupCache p = unsafePerformIO $ do { m <- readIORef simpCache
->                                      ; case IM.lookup (mkKey p) m of
->                                        { Nothing -> return Nothing 
->                                        ; Just x  -> return (Just x) } }
+> lookupSCache :: Pat -> Maybe [(Pat, Int -> SBinder -> SBinder)]
+> lookupSCache p = unsafePerformIO $ do { m <- readIORef simpCache
+>                                        ; case IM.lookup (Ha.hash p) m of
+>                                          { Nothing -> return Nothing 
+>                                          ; Just x  -> return (Just x) } }
 
-
+> {-
 > mkKey :: Pat -> Int
 > mkKey p = let s = show p
 >           in foldl' (\i c -> i*31 + (ord c)) 0 s                
