@@ -25,6 +25,8 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 
 > import System.IO.Unsafe
 > import Data.IORef
+> -- import qualified Data.HashTable.IO as H
+
 
 > import Data.List 
 > import Data.Char (ord)
@@ -137,9 +139,9 @@ The shapes of the input/output Pat and SBinder should be identical.
 
 > dPat0C :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)]
 > dPat0C p c = 
->   case lookupDCache p c of  
->    { Nothing -> let r = dPat0 p c 
->                     io = insertDCache p c r
+>   case {-# SCC "dPat0C/lookupDCache" #-} lookupDCache p c of  
+>    { Nothing -> let r = {-# SCC "dPat0C/dPat0" #-} dPat0 p c 
+>                     io = r `seq` {-# SCC "dPat0C/insertDCache" #-} insertDCache p c r
 >                 in io `seq` r
 >    ; Just r -> r }  
 
@@ -395,18 +397,18 @@ pfs .... todo
 unsafe cache
 
 > 
-> dPat0Cache :: IORef (M.Map (Pat,Char) [(Pat, Int -> SBinder -> SBinder)])
+> dPat0Cache :: IORef (M.Map (Char,Pat) [(Pat, Int -> SBinder -> SBinder)])
 > dPat0Cache = unsafePerformIO $ do { cref <- newIORef M.empty 
 >                                   ; return cref }
 
 > insertDCache :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)] -> ()
-> insertDCache p c r = unsafePerformIO $ do { m <- readIORef dPat0Cache
->                                           ; let m' = M.insert (p,c) r m
->                                           ; writeIORef dPat0Cache m' }
+> insertDCache p c r = unsafePerformIO $ do { m <- {-# SCC "insertDCache/readIORef" #-} readIORef dPat0Cache
+>                                           ; let m' = {-# SCC "insertDCache/insert" #-} M.insert (c,p) r m
+>                                           ; {-# SCC "insertDCache/writeIORef" #-} writeIORef dPat0Cache m' }
 
 > lookupDCache :: Pat -> Char -> Maybe [(Pat, Int -> SBinder -> SBinder)]
-> lookupDCache p c = unsafePerformIO $ do { m <- readIORef dPat0Cache
->                                         ; case M.lookup (p,c) m of
+> lookupDCache p c = unsafePerformIO $ do { m <- {-# SCC "lookupDCache/readIORef" #-} readIORef dPat0Cache
+>                                         ; case {-# SCC "lookupDCache/lookup" #-} M.lookup (c,p) m of
 >                                           { Nothing -> return Nothing 
 >                                           ; Just x  -> return (Just x) } }
 > 
@@ -428,6 +430,12 @@ unsafe cache
 >                                         { Nothing -> return Nothing 
 >                                         ; Just x  -> return (Just x) } }
 > 
+
+
+> {-
+> type HashTable k v = H.BasicHashTable k v   --8 sec
+> simpCache :: IORef (HashTable (Pat,Char) 
+> -}
 
 
 > {- slowest
@@ -571,19 +579,21 @@ invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat i
 > carryForward sr sb2 = error ("trying to carry forward into a non-annotated pattern binder " ++ (show sb2))
 
 
-
 > instance Ord Pat where
 >   compare (PVar x1 _ p1) (PVar x2 _ p2) 
->      | x1 == x2 = compare p1 p2
->      | otherwise = compare x1 x2
->   compare (PE r1) (PE r2) = compare r1 r2 
->   compare (PStar p1 _) (PStar p2 _) = compare p1 p2 
->   compare (PPair p1 p2) (PPair p3 p4) = let r = compare p1 p3 in case r of 
->      { EQ -> compare p2 p4
+>      | x1 == x2 = {-# SCC "compare1" #-}  compare p1 p2
+>      | otherwise = {-# SCC "compare2" #-} compare x1 x2
+>   compare (PE r1) (PE r2) = {-# SCC "compare3" #-} compare r1 r2 
+>   compare (PStar p1 g1) (PStar p2 g2) = let r = {-# SCC "compare4" #-} compare g1 g2 in case r of 
+>      { EQ -> compare p1 p2
 >      ; _  -> r }
->   compare (PChoice ps1 _) (PChoice ps2 _) = 
->      compare ps1 ps2
->   compare p1 p2 = compare (assignInt p1) (assignInt p2) 
+>   compare (PPair p1 p2) (PPair p3 p4) = let r = {-# SCC "compare5" #-} compare p1 p3 in case r of 
+>      { EQ -> {-# SCC "compare6" #-} compare p2 p4
+>      ; _  -> r }
+>   compare (PChoice ps1 g1) (PChoice ps2 g2) = let r = {-# SCC "compare7" #-} compare g1 g2 in case r of
+>      { EQ -> compare ps1 ps2
+>      ; _  -> r }
+>   compare p1 p2 = {-# SCC "compare8" #-} compare (assignInt p1) (assignInt p2) 
 >     where assignInt (PVar _ _ _) = 0
 >           assignInt (PE _) = 1
 >           assignInt (PStar _ _) = 2
@@ -703,7 +713,9 @@ testing
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^(((A|AB)(BAA|A))(AC|C))$" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
->    let (Right (pp,posixBnd)) = parsePatPosix "^[XY]*X(.?){1,8}Y[XY]*$"
+>    -- let (Right (pp,posixBnd)) = parsePatPosix "^[XY]*X(.?){1,8}Y[XY]*$"
+>    -- let (Right (pp,posixBnd)) = parsePatPosix "^.*X(.?){1,4}Y.*$"
+>    let (Right (pp,posixBnd)) = parsePatPosix "X(.?){1,4}Y"         
 >    in pp
 
 

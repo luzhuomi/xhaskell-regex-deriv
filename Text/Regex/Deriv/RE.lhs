@@ -35,18 +35,26 @@
 
 
 > instance Ord RE where
->     compare Empty Empty = EQ
->     compare (L x) (L y) = compare x y
->     compare (Choice rs1 _) (Choice rs2 _) = compare rs1 rs2
+>     compare Empty Empty = {-# SCC "compare0" #-} EQ
+>     compare (L x) (L y) = {-# SCC "compare1" #-} compare x y
+>     compare (Choice rs1 _) (Choice rs2 _) =  
+>         let l1 = length rs1   
+>             l2 = length rs2
+>             -- rs1' = reverse rs1
+>             -- rs2' = reverse rs2
+>         in if l1 == l2
+>            then
+>               {-# SCC "compare2" #-} compare rs1 rs2
+>            else compare l1 l2 
 >     compare (Seq r1 r2) (Seq r3 r4) = 
->       let x = compare r1 r3   
->       in case x of 
->       { EQ -> compare r2 r4
+>       let x = {-# SCC "compare3" #-} compare r1 r3
+>       in x `seq` case x of 
+>       { EQ -> {-# SCC "compare4" #-} compare r2 r4
 >       ; _  -> x }
->     compare (Star r1 _) (Star r2 _) = compare r1 r2
->     compare Any Any = EQ
+>     compare (Star r1 _) (Star r2 _) = {-# SCC "compare5" #-} compare r1 r2
+>     compare Any Any = {-# SCC "compare6" #-} EQ
 >     compare (Not cs) (Not cs') = compare cs cs'
->     compare r1 r2 = compare (assignInt r1) (assignInt r2)
+>     compare r1 r2 = {-# SCC "compare7" #-} compare (assignInt r1) (assignInt r2)
 >      where assignInt Empty = 0
 >            assignInt (L _) = 1             
 >            assignInt (Choice _ _) = 2
