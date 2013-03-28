@@ -282,26 +282,45 @@ rm results/re2_20.tsv
 
 
 
-"^((((((((a)(b))(c))(d))(e))(f))(g))(h))*$"
 
 
-"^(((a)((b)((c)((d)((e)((f)(g)))))))(h))*$" 
+# case 22
+rm results/DERIV22.tsv
+echo "" > data/empty
+./Timer ./DERIV "^((.?){1,1}Y)*X.*$" results/DERIV22.tsv  data/empty
+./Timer ./DERIV "^((.?){1,2}Y)*X.*$" results/DERIV22.tsv  data/empty
+./Timer ./DERIV "^((.?){1,3}Y)*X.*$" results/DERIV22.tsv  data/empty
+./Timer ./DERIV "^((.?){1,4}Y)*X.*$" results/DERIV22.tsv  data/empty
+./Timer ./DERIV "^((.?){1,5}Y)*X.*$" results/DERIV22.tsv  data/empty
 
 
-\texttt{\^{}((((((A(BC))D)E)F)G)H)*\$}
-   and   
-\texttt{\^{}(((((((AB)C)D)E)F)G)H)*\$}.
-
-
-not 
-
-\texttt{\^{}(((A)((B)((C)((D)((E)((F)(G)))))))(H))*\$}
-   and
-\texttt{\^{}((((((((A)(B))(C))(D))(E))(F))(G))(H))*\$}.
+rm results/TDFA22.tsv
+echo "" > data/empty
+./Timer ./TDFA "^((.?){1,1}Y)*X.*$" results/TDFA22.tsv  data/empty
+./Timer ./TDFA "^((.?){1,2}Y)*X.*$" results/TDFA22.tsv  data/empty
+./Timer ./TDFA "^((.?){1,3}Y)*X.*$" results/TDFA22.tsv  data/empty
+./Timer ./TDFA "^((.?){1,4}Y)*X.*$" results/TDFA22.tsv  data/empty
+./Timer ./TDFA "^((.?){1,5}Y)*X.*$" results/TDFA22.tsv  data/empty
 
 
 
-\^{}(((A)((B)((C)((D)((E)((F)((G)((H)((I)((J)((K)((L)((M)((N)((O)((P)((Q)((R)((S)((T)((U)((V)((W)((X)(Y)))))))))))))))))))))))))(Z))*\$
+rm results/HSPOSIX22.tsv
+echo "" > data/empty
+./Timer ./HSPOSIX "^((.?){1,1}Y)*X.*$" results/HSPOSIX22.tsv  data/empty
+./Timer ./HSPOSIX "^((.?){1,2}Y)*X.*$" results/HSPOSIX22.tsv  data/empty
+./Timer ./HSPOSIX "^((.?){1,3}Y)*X.*$" results/HSPOSIX22.tsv  data/empty
+./Timer ./HSPOSIX "^((.?){1,4}Y)*X.*$" results/HSPOSIX22.tsv  data/empty
+./Timer ./HSPOSIX "^((.?){1,5}Y)*X.*$" results/HSPOSIX22.tsv  data/empty
 
 
-\^{}((((((((((((((((((((((((((A)(B))(C))(D))(E))(F))(G))(H))(I))(J))(K))(L))(M))(N))(O))(P))(Q))(R))(S))(T))(U))(V))(W))(X))(Y))(Z))*\$
+rm results/re2_22.tsv
+echo "" > data/empty
+./Timer ./re2_1p "^((.?){1,1}Y)*X.*$" results/re2_22.tsv  data/empty
+./Timer ./re2_1p "^((.?){1,2}Y)*X.*$" results/re2_22.tsv  data/empty
+./Timer ./re2_1p "^((.?){1,3}Y)*X.*$" results/re2_22.tsv  data/empty
+./Timer ./re2_1p "^((.?){1,4}Y)*X.*$" results/re2_22.tsv  data/empty
+./Timer ./re2_1p "^((.?){1,5}Y)*X.*$" results/re2_22.tsv  data/empty
+
+
+
+
