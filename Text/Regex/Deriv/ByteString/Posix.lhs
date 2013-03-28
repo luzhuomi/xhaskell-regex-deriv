@@ -71,7 +71,7 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 >    ; Nothing -> IM.insert k r cf }
 
 > combineRange :: [Range] -> [Range] -> [Range]
-> -- combineRange rs1 rs2 = rs1
+> combineRange rs1 rs2 = rs1
 > combineRange ((r1@(Range b1 e1)):rs1) ((r2@(Range b2 e2)):rs2) 
 >   | b1 == b2 = if e1 >= e2 
 >                then [r1]
@@ -789,9 +789,9 @@ testing
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^(((A|AB)(BAA|A))(AC|C))$" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^((A)|(AB)|(B))*$" 
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^((a)|(bcdef)|(g)|(ab)|(c)|(d)|(e)|(efg)|(fg))*$"-- "X(.?){1,8}Y"
->    -- let (Right (pp,posixBnd)) = parsePatPosix "^[XY]*X(.?){1,8}Y[XY]*$"
+>    let (Right (pp,posixBnd)) = parsePatPosix "^[XY]*X([XY]?){1,2}Y[XY]*$"
 >    -- let (Right (pp,posixBnd)) = parsePatPosix "^.*X(.?){1,4}Y.*$"
->    let (Right (pp,posixBnd)) = parsePatPosix "X(.?){1,4}Y"         
+>    -- let (Right (pp,posixBnd)) = parsePatPosix "X(.?){1,4}Y"         
 >    in pp
 
 
@@ -892,6 +892,15 @@ x0 :: ( x1 :: (  x2 :: (x3:: a | x4 :: ab) | x5 :: b)* )
 >          p4 = PVar 4 [] (PE [(Seq (L 'A') (L 'B'))])           
 >          p5 = PVar 5 [] (PE [(L 'B')])
 
+(X|Y)* X (X|Y)|() ((X|Y)|())|() Y (X|Y)*
+(0:(1:(2:<(3:|[(['X','Y'])*]|),<|['X']|,<(-3:|[<([([(['X','Y']),<>])]),([([([(['X','Y']),<>])]),<>])>]|),<|['Y']|,(4:|[(['X','Y'])*]|)>>>>)))
+
+> p0 = PVar 0 [] p1
+>    where p1 = PVar 1 [] p2
+>          p2 = PVar 2 [] (PPair p3 (PPair (PE [(L 'X')]) (PPair pn3 (PPair (PE [(L 'Y')]) p4))))
+>          p3 = PVar 3 [] (PE [Star (Choice [L 'X', L 'Y'] Greedy) Greedy])
+>          pn3 = PVar (-3) [] (PE [ Seq (Choice [(Choice [Choice [L 'X', L 'Y'] Greedy, Empty] Greedy)] Greedy) (Choice [(Choice [(Choice [Choice [L 'X', L 'Y'] Greedy, Empty] Greedy), Empty] Greedy)] Greedy)])
+>          p4 = PVar 4 [] (PE [Star (Choice [L 'X', L 'Y'] Greedy) Greedy])
 
 > -- | The Deriv backend spepcific 'Regex' type
 > -- | the IntMap keeps track of the auxillary binder generated because of posix matching, i.e. all sub expressions need to be tag

@@ -1,5 +1,43 @@
 #!/bin/bash
 
+# case 1
+rm results/DERIV1*.tsv
+./Timer ./DERIV "(.)*$" results/DERIV1.tsv data/m1 data/m2 data/m3 data/m4 data/m5 data/m6 data/m7 data/m8 data/m9 data/m10 
+
+
+# case 2
+rm results/DERIV2*.tsv
+./Timer ./DERIV "ABCDEFGHIJKLMNOPQRSTUVWXYZ$" results/DERIV2.tsv data/m1 data/m2 data/m3 data/m4 data/m5 data/m6 data/m7 data/m8 data/m9 data/m10 
+
+
+# case 3
+rm results/DERIV3*.tsv
+./Timer ./DERIV "[XYZ]ABCDEFGHIJKLMNOPQRSTUVWXYZ$" results/DERIV3.tsv data/m1 data/m2 data/m3 data/m4 data/m5 data/m6 data/m7 data/m8 data/m9 data/m10 
+
+
+# case 4
+rm results/DERIV4*.tsv
+./Timer ./DERIV "[ -~]*ABCDEFGHIJKLMNOPQRSTUVWXYZ$" results/DERIV4.tsv data/m1 data/m2 data/m3 data/m4 data/m5 data/m6 data/m7 data/m8 data/m9 data/m10 
+
+
+# case 5
+rm results/DERIV5*.tsv
+./Timer ./DERIV "([0-9]{3}-|\\([0-9]{3}\\)[ ]+)([0-9]{3}-[0-9]{4})" results/DERIV5.tsv data/m1 data/m2 data/m3 data/m4 data/m5 data/m6 data/m7 data/m8 data/m9 data/m10 
+
+# case 6 
+rm results/DERIV6*.tsv
+./Timer ./DERIV "^.*([ABCDEFGHIJKLMNOPQRSTUVWXYZ][ABCDEFGHIJKLMNOPQRSTUVWXYZ]|[ABCDEFGHIJKLMNOPQRSTUVWXYZ])*(.*)$" results/DERIV6.tsv data/m1 data/m2 data/m3 data/m4 data/m5 data/m6 data/m7 data/m8 data/m9 data/m10 
+
+# case 7
+rm results/DERIV7*.tsv
+./Timer ./DERIV "^(a?){10}(a){10}$" results/DERIV7.tsv data/a_s_10
+./Timer ./DERIV "^(a?){15}(a){15}$" results/DERIV7.tsv data/a_s_15
+./Timer ./DERIV "^(a?){20}(a){20}$" results/DERIV7.tsv data/a_s_20
+./Timer ./DERIV "^(a?){25}(a){25}$" results/DERIV7.tsv data/a_s_25
+./Timer ./DERIV "^(a?){30}(a){30}$" results/DERIV7.tsv data/a_s_30
+
+
+
 
 # case 8
 rm results/DERIV8*.tsv
@@ -108,3 +146,162 @@ rm results/re2_13.tsv
 
 rm results/HSPOSIX13.tsv
 ./Timer ./HSPOSIX "^(a|aa)*c$" results/HSPOSIX13.tsv data/aabc17 data/aabc18 data/aabc19 data/aabc20 data/aabc21
+
+
+# case 14
+rm results/DERIV14.tsv
+./Timer ./DERIV "^.*X(.?){1,2}Y.*$" results/DERIV14.tsv data/x12y
+./Timer ./DERIV "^.*X(.?){1,3}Y.*$" results/DERIV14.tsv data/x12y
+./Timer ./DERIV "^.*X(.?){1,4}Y.*$" results/DERIV14.tsv data/x12y
+./Timer ./DERIV "^.*X(.?){1,5}Y.*$" results/DERIV14.tsv data/x12y
+./Timer ./DERIV "^.*X(.?){1,6}Y.*$" results/DERIV14.tsv data/x12y
+
+rm results/TDFA14.tsv
+./Timer ./TDFA "^.*X(.?){1,2}Y.*$" results/TDFA14.tsv data/x12y
+./Timer ./TDFA "^.*X(.?){1,3}Y.*$" results/TDFA14.tsv data/x12y
+./Timer ./TDFA "^.*X(.?){1,4}Y.*$" results/TDFA14.tsv data/x12y
+./Timer ./TDFA "^.*X(.?){1,5}Y.*$" results/TDFA14.tsv data/x12y
+./Timer ./TDFA "^.*X(.?){1,6}Y.*$" results/TDFA14.tsv data/x12y
+
+rm results/re2_14.tsv
+./Timer ./re2_1p "^.*X(.?){1,2}Y.*$" results/re2_14.tsv data/x12y
+./Timer ./re2_1p "^.*X(.?){1,3}Y.*$" results/re2_14.tsv data/x12y
+./Timer ./re2_1p "^.*X(.?){1,4}Y.*$" results/re2_14.tsv data/x12y
+./Timer ./re2_1p "^.*X(.?){1,5}Y.*$" results/re2_14.tsv data/x12y
+./Timer ./re2_1p "^.*X(.?){1,6}Y.*$" results/re2_14.tsv data/x12y
+
+rm results/HSPOSIX14.tsv
+./Timer ./HSPOSIX "^.*X(.?){1,2}Y.*$" results/HSPOSIX14.tsv data/x12y
+./Timer ./HSPOSIX "^.*X(.?){1,3}Y.*$" results/HSPOSIX14.tsv data/x12y
+./Timer ./HSPOSIX "^.*X(.?){1,4}Y.*$" results/HSPOSIX14.tsv data/x12y
+./Timer ./HSPOSIX "^.*X(.?){1,5}Y.*$" results/HSPOSIX14.tsv data/x12y
+./Timer ./HSPOSIX "^.*X(.?){1,6}Y.*$" results/HSPOSIX14.tsv data/x12y
+
+
+
+# case 15
+rm results/DERIV15.tsv
+./Timer ./DERIV "^((((((((((((((((((((((((((a)(b))(c))(d))(e))(f))(g))(h))(i))(j))(k))(l))(m))(n))(o))(p))(q))(r))(s))(t))(u))(v))(w))(x))(y))(z))*$" results/DERIV15.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+
+
+rm results/TDFA15.tsv
+./Timer ./TDFA "^((((((((((((((((((((((((((a)(b))(c))(d))(e))(f))(g))(h))(i))(j))(k))(l))(m))(n))(o))(p))(q))(r))(s))(t))(u))(v))(w))(x))(y))(z))*$" results/TDFA15.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+
+
+rm results/HSPOSIX15.tsv
+./Timer ./HSPOSIX "^((((((((((((((((((((((((((a)(b))(c))(d))(e))(f))(g))(h))(i))(j))(k))(l))(m))(n))(o))(p))(q))(r))(s))(t))(u))(v))(w))(x))(y))(z))*$" results/HSPOSIX15.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+
+
+rm results/re2_15.tsv
+./Timer ./re2_1p "^((((((((((((((((((((((((((a)(b))(c))(d))(e))(f))(g))(h))(i))(j))(k))(l))(m))(n))(o))(p))(q))(r))(s))(t))(u))(v))(w))(x))(y))(z))*$" results/re2_15.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+
+
+
+# case 16
+rm results/DERIV16.tsv
+./Timer ./DERIV "^(((a)((b)((c)((d)((e)((f)((g)((h)((i)((j)((k)((l)((m)((n)((o)((p)((q)((r)((s)((t)((u)((v)((w)((x)(y)))))))))))))))))))))))))(z))*$" results/DERIV16.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+
+
+rm results/TDFA16.tsv
+./Timer ./TDFA "^(((a)((b)((c)((d)((e)((f)((g)((h)((i)((j)((k)((l)((m)((n)((o)((p)((q)((r)((s)((t)((u)((v)((w)((x)(y)))))))))))))))))))))))))(z))*$" results/TDFA16.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+
+
+rm results/HSPOSIX16.tsv
+./Timer ./HSPOSIX "^(((a)((b)((c)((d)((e)((f)((g)((h)((i)((j)((k)((l)((m)((n)((o)((p)((q)((r)((s)((t)((u)((v)((w)((x)(y)))))))))))))))))))))))))(z))*$" results/HSPOSIX16.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+
+
+rm results/re2_16.tsv
+./Timer ./re2_1p  "^(((a)((b)((c)((d)((e)((f)((g)((h)((i)((j)((k)((l)((m)((n)((o)((p)((q)((r)((s)((t)((u)((v)((w)((x)(y)))))))))))))))))))))))))(z))*$" results/re2_16.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+
+
+# case 17
+#rm results/DERIV17_1.tsv
+#./Timer ./DERIV  "^((((((((((((((((((((((((((a)(b))(c))(d))(e))(f))(g))(h))(i))(j))(k))(l))(m))(n))(o))(p))(q))(r))(s))(t))(u))(v))(w))(x))(y))(z))*$" results/DERIV17_1.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+ln -snvf results/DERIV15.tsv results/DERIV17_1.tsv
+
+
+rm results/DERIV17_05.tsv
+./Timer ./DERIV "^(((((((((((((a)(b))(c))(d))(e))(f))(g))(h))(i))(j))(k))(l))(m))*$" results/DERIV17_05.tsv data/a_to_m1 data/a_to_m2 data/a_to_m3 data/a_to_m4 data/a_to_m5 data/a_to_m6 data/a_to_m7 data/a_to_m8 data/a_to_m9 data/a_to_m10
+
+rm results/DERIV17_025.tsv
+./Timer ./DERIV "^(((((((a))(b))(c))(d))(e))(f))*$" results/DERIV17_025.tsv data/a_to_f1 data/a_to_f2 data/a_to_f3 data/a_to_f4 data/a_to_f5 data/a_to_f6 data/a_to_f7 data/a_to_f8 data/a_to_f9 data/a_to_f10
+
+
+
+# case 18
+#rm results/DERIV18_1.tsv
+#./Timer ./DERIV  "^(((a)((b)((c)((d)((e)((f)((g)((h)((i)((j)((k)((l)((m)((n)((o)((p)((q)((r)((s)((t)((u)((v)((w)((x)(y)))))))))))))))))))))))))(z))*$" results/DERIV18_1.tsv data/a_to_z1 data/a_to_z2 data/a_to_z3 data/a_to_z4 data/a_to_z5 data/a_to_z6 data/a_to_z7 data/a_to_z8 data/a_to_z9 data/a_to_z10
+
+ln -snvf results/DERIV16.tsv results/DERIV18_1.tsv
+
+
+rm results/DERIV18_05.tsv
+./Timer ./DERIV "^(((a)((b)((c)((d)((e)((f)((g)((h)((i)((j)((k)(l))))))))))))(m))*$" results/DERIV18_05.tsv data/a_to_m1 data/a_to_m2 data/a_to_m3 data/a_to_m4 data/a_to_m5 data/a_to_m6 data/a_to_m7 data/a_to_m8 data/a_to_m9 data/a_to_m10
+
+rm results/DERIV18_025.tsv
+./Timer ./DERIV "^(((a)((b)((c)((d)(e)))))(f))*$" results/DERIV18_025.tsv data/a_to_f1 data/a_to_f2 data/a_to_f3 data/a_to_f4 data/a_to_f5 data/a_to_f6 data/a_to_f7 data/a_to_f8 data/a_to_f9 data/a_to_f10
+
+
+
+
+
+
+# case 19
+rm results/DERIV19.tsv
+./Timer ./DERIV "^((((((((a)(b))(c))(d))(e))(f))(g))(h))*$" results/DERIV19.tsv data/a_to_h1 data/a_to_h2 data/a_to_h3 data/a_to_h4 data/a_to_h5 data/a_to_h6 data/a_to_h7 data/a_to_h8 data/a_to_h9 data/a_to_h10
+
+
+rm results/TDFA19.tsv
+./Timer ./TDFA "^((((((((a)(b))(c))(d))(e))(f))(g))(h))*$" results/TDFA19.tsv data/a_to_h1 data/a_to_h2 data/a_to_h3 data/a_to_h4 data/a_to_h5 data/a_to_h6 data/a_to_h7 data/a_to_h8 data/a_to_h9 data/a_to_h10
+
+
+rm results/HSPOSIX19.tsv
+./Timer ./HSPOSIX "^((((((((a)(b))(c))(d))(e))(f))(g))(h))*$" results/HSPOSIX19.tsv data/a_to_h1 data/a_to_h2 data/a_to_h3 data/a_to_h4 data/a_to_h5 data/a_to_h6 data/a_to_h7 data/a_to_h8 data/a_to_h9 data/a_to_h10
+
+
+rm results/re2_19.tsv
+./Timer ./re2_1p "^((((((((a)(b))(c))(d))(e))(f))(g))(h))*$" results/re2_19.tsv data/a_to_h1 data/a_to_h2 data/a_to_h3 data/a_to_h4 data/a_to_h5 data/a_to_h6 data/a_to_h7 data/a_to_h8 data/a_to_h9 data/a_to_h10
+
+
+
+# case 20
+rm results/DERIV20.tsv
+./Timer ./DERIV "^(((a)((b)((c)((d)((e)((f)(g)))))))(h))*$" results/DERIV20.tsv data/a_to_h1 data/a_to_h2 data/a_to_h3 data/a_to_h4 data/a_to_h5 data/a_to_h6 data/a_to_h7 data/a_to_h8 data/a_to_h9 data/a_to_h10
+
+
+rm results/TDFA20.tsv
+./Timer ./TDFA "^(((a)((b)((c)((d)((e)((f)(g)))))))(h))*$" results/TDFA20.tsv data/a_to_h1 data/a_to_h2 data/a_to_h3 data/a_to_h4 data/a_to_h5 data/a_to_h6 data/a_to_h7 data/a_to_h8 data/a_to_h9 data/a_to_h10
+
+
+rm results/HSPOSIX20.tsv
+./Timer ./HSPOSIX "^(((a)((b)((c)((d)((e)((f)(g)))))))(h))*$" results/HSPOSIX20.tsv data/a_to_h1 data/a_to_h2 data/a_to_h3 data/a_to_h4 data/a_to_h5 data/a_to_h6 data/a_to_h7 data/a_to_h8 data/a_to_h9 data/a_to_h10
+
+
+rm results/re2_20.tsv
+./Timer ./re2_1p "^(((a)((b)((c)((d)((e)((f)(g)))))))(h))*$" results/re2_20.tsv data/a_to_h1 data/a_to_h2 data/a_to_h3 data/a_to_h4 data/a_to_h5 data/a_to_h6 data/a_to_h7 data/a_to_h8 data/a_to_h9 data/a_to_h10
+
+
+
+"^((((((((a)(b))(c))(d))(e))(f))(g))(h))*$"
+
+
+"^(((a)((b)((c)((d)((e)((f)(g)))))))(h))*$" 
+
+
+\texttt{\^{}((((((A(BC))D)E)F)G)H)*\$}
+   and   
+\texttt{\^{}(((((((AB)C)D)E)F)G)H)*\$}.
+
+
+not 
+
+\texttt{\^{}(((A)((B)((C)((D)((E)((F)(G)))))))(H))*\$}
+   and
+\texttt{\^{}((((((((A)(B))(C))(D))(E))(F))(G))(H))*\$}.
+
+
+
+\^{}(((A)((B)((C)((D)((E)((F)((G)((H)((I)((J)((K)((L)((M)((N)((O)((P)((Q)((R)((S)((T)((U)((V)((W)((X)(Y)))))))))))))))))))))))))(Z))*\$
+
+
+\^{}((((((((((((((((((((((((((A)(B))(C))(D))(E))(F))(G))(H))(I))(J))(K))(L))(M))(N))(O))(P))(Q))(R))(S))(T))(U))(V))(W))(X))(Y))(Z))*\$
