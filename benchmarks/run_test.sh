@@ -281,8 +281,61 @@ rm results/re2_20.tsv
 ./Timer ./re2_1p "^(((a)((b)((c)((d)((e)((f)(g)))))))(h))*$" results/re2_20.tsv data/a_to_h1 data/a_to_h2 data/a_to_h3 data/a_to_h4 data/a_to_h5 data/a_to_h6 data/a_to_h7 data/a_to_h8 data/a_to_h9 data/a_to_h10
 
 
+# case 21
+echo "" > /tmp/empty
 
 
+rm results/DERIV21.tsv
+./Timer ./DERIV "\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*([,;]\s*\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*)*" results/DERIV21.tsv /tmp/empty
+./Timer ./DERIV "$?(\d{1,3},?(\d{3},?)*\d{3}(\.\d{0,2})?|\d{1,3}(\.\d{0,2})?|\.\d{1,2}?)" results/DERIV21.tsv /tmp/empty
+./Timer ./DERIV "([A-Z]{2}|[a-z]{2} \d{2} [A-Z]{1,2}|[a-z]{1,2} \d{1,4})?([A-Z]{3}|[a-z]{3} \d{1,4})?" results/DERIV21.tsv /tmp/empty
+./Timer ./DERIV "[A-Za-z0-9](([ \.\-]?[a-zA-Z0-9]+)*)@([A-Za-z0-9]+)(([\.\-]?[a-zA-Z0-9]+)*)\. ([A-Za-z][A-Za-z]+)" results/DERIV21.tsv /tmp/empty
+./Timer ./DERIV "(\w|-)+@((\w|-)+\.)+(\w|-)+" results/DERIV21.tsv /tmp/empty
+./Timer ./DERIV "[+-]?([0-9]*\.?[0-9]+|[0-9]+\.?[0-9]*)([eE][+-]?[0-9]+)?" results/DERIV21.tsv /tmp/empty
+./Timer ./DERIV "((\w|\d|\-|\.)+)@{1}(((\w|\d|\-){1,67})|((\w|\d|\-)+\.(\w|\d|\-){1,67}))\.((([a-z]|[A-Z]|\d){2,4})(\.([a-z]|[AZ]|\d){2})?)" results/DERIV21.tsv /tmp/empty
+./Timer ./DERIV "(([A-Za-z0-9]+ +)|([A-Za-z0-9]+\-+)|([A-Za-z0-9]+\.+)|([A-Za-z0-9]+\++))*[A-Za-z0-9]+@((\w+\-+)|(\w+\.))*\w{1,63}\.[a-zA-Z]{2,6}"  results/DERIV21.tsv /tmp/empty
+#./Timer ./DERIV "(([a-zA-Z0-9 \-\.]+)@([a-zA-Z0-9 \-\.]+)\.([a-zA-Z]{2,5}){1,25})+([;.](([a-zA-Z0-9 \-\.]+)@([a-zA-Z0-9 \-\.]+)\.([a-zA-Z]{2,5}){1,25})+)*"  results/DERIV21.tsv /tmp/empty compilation error
+./Timer ./DERIV "((\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*)\s*[,]{0,1}\s*)+"  results/DERIV21.tsv /tmp/empty
+
+rm results/TDFA21.tsv
+./Timer ./TDFA "\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*([,;]\s*\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*)*" results/TDFA21.tsv /tmp/empty
+# ./Timer ./TDFA "$?(\d{1,3},?(\d{3},?)*\d{3}(\.\d{0,2})?|\d{1,3}(\.\d{0,2})?|\.\d{1,2}?)" results/TDFA21.tsv /tmp/empty compilation error
+./Timer ./TDFA "([A-Z]{2}|[a-z]{2} \d{2} [A-Z]{1,2}|[a-z]{1,2} \d{1,4})?([A-Z]{3}|[a-z]{3} \d{1,4})?" results/TDFA21.tsv /tmp/empty
+./Timer ./TDFA "[A-Za-z0-9](([ \.\-]?[a-zA-Z0-9]+)*)@([A-Za-z0-9]+)(([\.\-]?[a-zA-Z0-9]+)*)\. ([A-Za-z][A-Za-z]+)" results/TDFA21.tsv /tmp/empty
+./Timer ./TDFA "(\w|-)+@((\w|-)+\.)+(\w|-)+" results/TDFA21.tsv /tmp/empty
+./Timer ./TDFA "[+-]?([0-9]*\.?[0-9]+|[0-9]+\.?[0-9]*)([eE][+-]?[0-9]+)?" results/TDFA21.tsv /tmp/empty
+./Timer ./TDFA "((\w|\d|\-|\.)+)@{1}(((\w|\d|\-){1,67})|((\w|\d|\-)+\.(\w|\d|\-){1,67}))\.((([a-z]|[A-Z]|\d){2,4})(\.([a-z]|[AZ]|\d){2})?)" results/TDFA21.tsv /tmp/empty
+./Timer ./TDFA "(([A-Za-z0-9]+ +)|([A-Za-z0-9]+\-+)|([A-Za-z0-9]+\.+)|([A-Za-z0-9]+\++))*[A-Za-z0-9]+@((\w+\-+)|(\w+\.))*\w{1,63}\.[a-zA-Z]{2,6}"  results/TDFA21.tsv /tmp/empty
+./Timer ./TDFA "(([a-zA-Z0-9 \-\.]+)@([a-zA-Z0-9 \-\.]+)\.([a-zA-Z]{2,5}){1,25})+([;.](([a-zA-Z0-9 \-\.]+)@([a-zA-Z0-9 \-\.]+)\.([a-zA-Z]{2,5}){1,25})+)*"  results/TDFA21.tsv /tmp/empty 
+./Timer ./TDFA "((\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*)\s*[,]{0,1}\s*)+"  results/TDFA21.tsv /tmp/empty
+
+
+
+rm results/HSPOSIX21.tsv
+./Timer ./HSPOSIX "\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*([,;]\s*\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*)*" results/HSPOSIX21.tsv /tmp/empty
+./Timer ./HSPOSIX "$?(\d{1,3},?(\d{3},?)*\d{3}(\.\d{0,2})?|\d{1,3}(\.\d{0,2})?|\.\d{1,2}?)" results/HSPOSIX21.tsv /tmp/empty 
+./Timer ./HSPOSIX "([A-Z]{2}|[a-z]{2} \d{2} [A-Z]{1,2}|[a-z]{1,2} \d{1,4})?([A-Z]{3}|[a-z]{3} \d{1,4})?" results/HSPOSIX21.tsv /tmp/empty
+./Timer ./HSPOSIX "[A-Za-z0-9](([ \.\-]?[a-zA-Z0-9]+)*)@([A-Za-z0-9]+)(([\.\-]?[a-zA-Z0-9]+)*)\. ([A-Za-z][A-Za-z]+)" results/HSPOSIX21.tsv /tmp/empty
+./Timer ./HSPOSIX "(\w|-)+@((\w|-)+\.)+(\w|-)+" results/HSPOSIX21.tsv /tmp/empty
+./Timer ./HSPOSIX "[+-]?([0-9]*\.?[0-9]+|[0-9]+\.?[0-9]*)([eE][+-]?[0-9]+)?" results/HSPOSIX21.tsv /tmp/empty
+./Timer ./HSPOSIX "((\w|\d|\-|\.)+)@{1}(((\w|\d|\-){1,67})|((\w|\d|\-)+\.(\w|\d|\-){1,67}))\.((([a-z]|[A-Z]|\d){2,4})(\.([a-z]|[AZ]|\d){2})?)" results/HSPOSIX21.tsv /tmp/empty
+./Timer ./HSPOSIX "(([A-Za-z0-9]+ +)|([A-Za-z0-9]+\-+)|([A-Za-z0-9]+\.+)|([A-Za-z0-9]+\++))*[A-Za-z0-9]+@((\w+\-+)|(\w+\.))*\w{1,63}\.[a-zA-Z]{2,6}"  results/HSPOSIX21.tsv /tmp/empty
+./Timer ./HSPOSIX "(([a-zA-Z0-9 \-\.]+)@([a-zA-Z0-9 \-\.]+)\.([a-zA-Z]{2,5}){1,25})+([;.](([a-zA-Z0-9 \-\.]+)@([a-zA-Z0-9 \-\.]+)\.([a-zA-Z]{2,5}){1,25})+)*"  results/HSPOSIX21.tsv /tmp/empty 
+./Timer ./HSPOSIX "((\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*)\s*[,]{0,1}\s*)+"  results/HSPOSIX21.tsv /tmp/empty
+
+
+
+rm results/re2_21.tsv
+# ./Timer ./re2_1p "\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*([,;]\s*\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*)*" results/re2_21.tsv /tmp/empty # compilation error
+# ./Timer ./re2_1p "$?(\d{1,3},?(\d{3},?)*\d{3}(\.\d{0,2})?|\d{1,3}(\.\d{0,2})?|\.\d{1,2}?)" results/re2_21.tsv /tmp/empty  # compilation error
+# ./Timer ./re2_1p "([A-Z]{2}|[a-z]{2} \d{2} [A-Z]{1,2}|[a-z]{1,2} \d{1,4})?([A-Z]{3}|[a-z]{3} \d{1,4})?" results/re2_21.tsv /tmp/empty # compilation error
+./Timer ./re2_1p "[A-Za-z0-9](([ \.\-]?[a-zA-Z0-9]+)*)@([A-Za-z0-9]+)(([\.\-]?[a-zA-Z0-9]+)*)\. ([A-Za-z][A-Za-z]+)" results/re2_21.tsv /tmp/empty
+# ./Timer ./re2_1p "(\w|-)+@((\w|-)+\.)+(\w|-)+" results/re2_21.tsv /tmp/empty # compilation error
+./Timer ./re2_1p "[+-]?([0-9]*\.?[0-9]+|[0-9]+\.?[0-9]*)([eE][+-]?[0-9]+)?" results/re2_21.tsv /tmp/empty
+#./Timer ./re2_1p "((\w|\d|\-|\.)+)@{1}(((\w|\d|\-){1,67})|((\w|\d|\-)+\.(\w|\d|\-){1,67}))\.((([a-z]|[A-Z]|\d){2,4})(\.([a-z]|[AZ]|\d){2})?)" results/re2_21.tsv /tmp/empty # compilation error
+./Timer ./re2_1p "(([A-Za-z0-9]+ +)|([A-Za-z0-9]+\-+)|([A-Za-z0-9]+\.+)|([A-Za-z0-9]+\++))*[A-Za-z0-9]+@((\w+\-+)|(\w+\.))*\w{1,63}\.[a-zA-Z]{2,6}"  results/re2_21.tsv /tmp/empty
+./Timer ./re2_1p "(([a-zA-Z0-9 \-\.]+)@([a-zA-Z0-9 \-\.]+)\.([a-zA-Z]{2,5}){1,25})+([;.](([a-zA-Z0-9 \-\.]+)@([a-zA-Z0-9 \-\.]+)\.([a-zA-Z]{2,5}){1,25})+)*"  results/re2_21.tsv /tmp/empty 
+./Timer ./re2_1p "((\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*)\s*[,]{0,1}\s*)+"  results/re2_21.tsv /tmp/empty
 
 # case 22
 rm results/DERIV22.tsv
@@ -293,17 +346,6 @@ echo "" > data/empty
 ./Timer ./DERIV "^((.?){1,4}Y)*X.*$" results/DERIV22.tsv  data/empty
 ./Timer ./DERIV "^((.?){1,5}Y)*X.*$" results/DERIV22.tsv  data/empty
 
-
-rm results/TDFA22.tsv
-echo "" > data/empty
-./Timer ./TDFA "^((.?){1,1}Y)*X.*$" results/TDFA22.tsv  data/empty
-./Timer ./TDFA "^((.?){1,2}Y)*X.*$" results/TDFA22.tsv  data/empty
-./Timer ./TDFA "^((.?){1,3}Y)*X.*$" results/TDFA22.tsv  data/empty
-./Timer ./TDFA "^((.?){1,4}Y)*X.*$" results/TDFA22.tsv  data/empty
-./Timer ./TDFA "^((.?){1,5}Y)*X.*$" results/TDFA22.tsv  data/empty
-
-
-
 rm results/HSPOSIX22.tsv
 echo "" > data/empty
 ./Timer ./HSPOSIX "^((.?){1,1}Y)*X.*$" results/HSPOSIX22.tsv  data/empty
@@ -312,6 +354,13 @@ echo "" > data/empty
 ./Timer ./HSPOSIX "^((.?){1,4}Y)*X.*$" results/HSPOSIX22.tsv  data/empty
 ./Timer ./HSPOSIX "^((.?){1,5}Y)*X.*$" results/HSPOSIX22.tsv  data/empty
 
+rm results/TDFA22.tsv
+echo "" > data/empty
+./Timer ./TDFA "^((.?){1,1}Y)*X.*$" results/TDFA22.tsv  data/empty
+./Timer ./TDFA "^((.?){1,2}Y)*X.*$" results/TDFA22.tsv  data/empty
+./Timer ./TDFA "^((.?){1,3}Y)*X.*$" results/TDFA22.tsv  data/empty
+./Timer ./TDFA "^((.?){1,4}Y)*X.*$" results/TDFA22.tsv  data/empty
+./Timer ./TDFA "^((.?){1,5}Y)*X.*$" results/TDFA22.tsv  data/empty
 
 rm results/re2_22.tsv
 echo "" > data/empty
