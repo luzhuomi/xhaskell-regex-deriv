@@ -23,6 +23,11 @@
 >                    Right r -> r
 >         -- ls = S.pack "abc"
 >   ; ls <- {-# SCC "main/readFile" #-} S.readFile x
->   ; let result = {-# SCC "main/parse" #-} parse compiled (head $ S.lines ls)
->   ; putStrLn (show result)
+>   ; let input = S.lines ls
+>   ; if (length input) > 0 
+>     then do 
+>       { let result = {-# SCC "main/parse" #-} parse compiled (head $ S.lines ls)
+>       ; putStrLn (show result)
+>       }
+>     else putStrLn "The input file is empty"
 >   }

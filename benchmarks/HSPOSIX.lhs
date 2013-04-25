@@ -22,6 +22,11 @@
 >   ; let pat = S.pack p                  
 >   ; (Right compiled) <- compile compExtended execBlank pat
 >   ; ls <- S.readFile x
->   ; result <- parse compiled (head $ S.lines ls) 
->   ; putStrLn $ show result
+>   ; let input = S.lines ls
+>   ; if (length input) > 0 
+>     then do 
+>      	{ result <- parse compiled (head $ S.lines ls) 
+>      	; putStrLn $ show result
+>	}
+>     else putStrLn  "The input file is empty"
 >   }
