@@ -71,7 +71,7 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 >    ; Nothing -> IM.insert k r cf }
 
 > combineRange :: [Range] -> [Range] -> [Range]
-> -- combineRange rs1 rs2 = rs1
+> -- combineRange rs1 rs2 = rs1 -- this caused the bug of (.)* returning the first match instead of the last.
 > combineRange ((r1@(Range b1 e1)):rs1) ((r2@(Range b2 e2)):rs2) 
 >   | b1 == b2 = if e1 >= e2 
 >                then [r1]
