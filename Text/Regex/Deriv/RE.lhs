@@ -17,6 +17,7 @@
 >  | Empty        -- ^ an empty exp
 >  | L Char	  -- ^ a literal / a character
 >  | Choice [RE] GFlag -- ^ a choice exp 'r1 + r2'
+>  | ChoiceInt [RE] -- ^ internal choice used in the BitCode version
 >  | Seq RE RE     -- ^ a pair exp '(r1,r2)'
 >  | Star RE GFlag -- ^ a kleene's star exp 'r*'
 >  | Any           -- ^ .
