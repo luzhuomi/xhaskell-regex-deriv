@@ -246,4 +246,72 @@ execDfa dfaTable w' currStateSPaths =
                 execDfa dfaTable w nextStateSPaths
         }
          
+
+
+
+retrieveEmpty :: RE -> SPath -> Path
+retrieveEmpty Empty (SEps p) = p
+retrieveEmpty (Choice [r1,r2] gf) (SChoice p [sp1, sp2]) 
+  | nullable r1 = p ++ (0 : retrieveEmpty r1 sp1)
+  | nullable r2 = p ++ (1 : retrieveEmpty r2 sp2)
+retrieveEmpty (ChoiceInt [r1,r2]) (SChoice p [sp1, sp2]) 
+  | nullable r1 = p ++ (retrieveEmpty r1 sp1)
+  | nullable r2 = p ++ (retrieveEmpty r2 sp2)
+retrieveEmpty (Seq r1 r2) (SPair p sp1 sp2)  = p `appP` (retrieveEmpty r1 sp1) `appP` (retrieveEmpty r2 sp2)
+retrieveEmpty (Star r gf) (SStar p sp) = p `appP` [1] 
+
+
+sDecode :: RE -> SPath -> U
+sDecode r sp = let p = retrieveEmpty r sp 
+               in decode r p
          
+decode2 :: RE -> [Int] -> (U, [Int])
+decode2 Phi bs = (Nil,bs)
+decode2 Empty bs = (EmptyU,bs)
+decode2 (L l) bs = (Letter l, bs)
+decode2 (Choice [r1,r2] gf) (0:bs) = let (u,p) = decode2 r1 bs
+                                     in (LeftU u, p)
+decode2 (Choice [r1,r2] gf) (1:bs) = let (u,p) = decode2 r2 bs
+                                     in (RightU u, p)
+decode2 (Seq r1 r2) bs = let (u1,p1) = decode2 r1 bs
+                             (u2,p2) = decode2 r2 p1
+                         in (Pair (u1,u2), p2)
+decode2 (sr@(Star r gf)) (0:bs) = let (u,p1) = decode2 r bs
+                                      (List us,p2) = decode2 sr p1
+                                  in (List (u:us), p2)
+decode2 Star{} (1:bs) = (List [],bs)
+
+decode :: RE -> [Int] -> U
+decode r bs = let (u,p) = decode2 r bs
+              in case p of
+                   [] -> u
+                   _  -> error "invalid bit coding"
+
+-- assume strip p = r
+extract :: Pat -> RE -> U -> [(Int,Word)]
+extract (PVar i _ p) r u
+  | strip p == r = [(i, flatten u)]
+  | otherwise    = error "the structures of the pattern and regex are not in sync"
+extract (PE rs) (Choice rs' _) u = [] -- not in used
+extract (PStar p _) (Star r _) (List []) = []
+extract (PStar p _) (Star r _) (List [u]) = extract p r u 
+extract p'@(PStar p _) r'@(Star r _) (List (u:us)) = extract p' r' (List us) -- we only extract the last binding
+extract (PPair p1 p2) (Seq r1 r2) (Pair (u1,u2)) = extract p1 r1 u1 ++ extract p2 r2 u2
+extract (PChoice [p1,p2] _) (Choice [r1,r2] _) (LeftU u)  = extract p1 r1 u
+extract (PChoice [p1,p2] _) (Choice [r1,r2] _) (RightU u) = extract p2 r2 u
+extract (PEmpty p) Empty _ = [] -- not in used
+
+
+flatten :: U -> Word
+flatten u = S.pack (flatten' u)
+
+flatten' :: U -> [Char]
+flatten' Nil = []
+flatten' EmptyU = []
+flatten' (Letter c) = [c]
+flatten' (LeftU u) = flatten' u
+flatten' (RightU u) = flatten' u
+flatten' (Pair (u1,u2)) = flatten' u1 ++ flatten' u2
+flatten' (List us) = concatMap flatten' us
+
+
