@@ -10,7 +10,6 @@ We do not break part the sub-pattern of the original reg, they are always groupe
     BangPatterns, 
     FlexibleInstances, TypeSynonymInstances, FlexibleContexts #-} 
 
-
 module Text.Regex.Deriv.ByteString.BitCode
        {-
        ( Regex
@@ -164,9 +163,14 @@ simp (ChoiceInt [r1,r2])
                     (r2',f2) = simp r2
                 in (ChoiceInt [r1',r2'], \(SChoice p [sp1,sp2]) -> 
                      SChoice p [f1 sp1, f2 sp2])
-simp (Star Empty gf) = (Empty, \(SStar p1 (SEps p2)) -> SEps (p1 `appP` p2)) -- how likely this will be applied when p1 and p2 are non-empty paths?
-simp (Star (Star r gf2) gf1) = (Star r gf1, \(SStar p1 (SStar p2 sp)) -> SStar (p1 `appP` p2) sp)
-simp (Star r gf) | isPhi r = (Empty, \(SStar p sp) -> SEps p)
+simp (Star Empty gf) = (Empty, \(SStar p1 (SEps p2)) -> SEps (p1 `appP` p2 `appP` [1])) -- how likely this will be applied when p1 and p2 are non-empty paths?
+-- r** ==> r*
+-- tricky, because r* path p, would need to be embedded into
+--  0 p 1
+-- That is, the outer Kleene star performs a single iteration
+-- I'm quite sure we can do without this optimization.
+-- simp (Star (Star r gf2) gf1) = (Star r gf1, \(SStar p1 (SStar p2 sp)) -> SStar (p1 `appP` p2) sp)
+simp (Star r gf) | isPhi r = (Empty, \(SStar p sp) -> SEps (p `appP` [1]))
                  | otherwise = let (r', f) = simp r
                                in (Star r' gf, \(SStar p sp) -> SStar p (f sp))
                                
@@ -302,6 +306,28 @@ extract (PChoice [p1,p2] _) (Choice [r1,r2] _) (RightU u) = extract p2 r2 u
 extract (PEmpty p) Empty _ = [] -- not in used
 
 
+extractSR :: Pat -> RE -> U -> Int -> ([(Int, Range)], Int)
+extractSR (PVar i _ p) r u start_index 
+  | strip p == r = let l = S.length $ flatten u 
+                   in ([(i, Range start_index l)] , start_index + l)
+  | otherwise    = error "the structures of the pattern and regex are not in sync"
+extractSR (PE rs) (Choice rs' _) u start_index = ([],start_index) -- not in used
+extractSR (PStar p _) (Star r _) (List []) start_index = ([], start_index)
+extractSR (PStar p _) (Star r _) (List [u]) start_index = extractSR p r u start_index
+extractSR p'@(PStar p _) r'@(Star r _) (List (u:us)) start_index = extractSR p' r' (List us) start_index -- we only extract the last binding
+extractSR (PPair p1 p2) (Seq r1 r2) (Pair (u1,u2)) start_index =  
+  let (l1, i1) = extractSR p1 r1 u1 start_index 
+      (l2, i2) = extractSR p2 r2 u2 i2
+  in (l1 ++ l2, i2)
+extractSR (PChoice [p1,p2] _) (Choice [r1,r2] _) (LeftU u) start_index = extractSR p1 r1 u start_index
+extractSR (PChoice [p1,p2] _) (Choice [r1,r2] _) (RightU u) start_index = extractSR p2 r2 u start_index
+extractSR (PEmpty p) Empty _ start_index = ([],start_index) -- not in used
+
+
+
+  
+
+
 flatten :: U -> Word
 flatten u = S.pack (flatten' u)
 
@@ -315,3 +341,14 @@ flatten' (Pair (u1,u2)) = flatten' u1 ++ flatten' u2
 flatten' (List us) = concatMap flatten' us
 
 
+compilePat :: Pat -> (DfaTable, Pat)
+compilePat p = 
+  let r = strip p 
+      dfa = buildDfaTable r
+  in (dfa, p)
+     
+{-
+execPatMatch :: (DfaTable, Pat) -> Word -> Maybe Env
+execPatMatch (dfa, p) w = 
+  let 
+-}
