@@ -167,7 +167,7 @@ simp (Choice [r1,r2] gf)
   | isPhi r2 = (r1, \(SChoice p [sp1,sp2]) -> prefix (p `appP` [0]) sp1)
   | otherwise = let (r1',f1) = simp r1
                     (r2',f2) = simp r2
-                in (ChoiceInt [r1',r2'], \(SChoice p [sp1,sp2]) -> 
+                in (Choice [r1',r2'] gf, \(SChoice p [sp1,sp2]) -> 
                      SChoice p [f1 sp1, f2 sp2])
 simp (ChoiceInt [ChoiceInt [r1,r2], r3]) =    
   (ChoiceInt [r1, ChoiceInt [r2,r3]], \(SChoice p1 [SChoice p2 [sp1, sp2], sp3]) ->
@@ -267,12 +267,48 @@ execDfa dfaTable w' currStateSPaths =
         { Nothing -> [] 
         ; Just (j, f) ->
              let sp' = sp `seq` f sp
-                 nextStateSPaths = j `seq` sp' `seq` [(j,sp')]
+                 -- io  = logger (putStrLn (show sp) >> putStrLn (show sp') >> putStrLn "=================")
+                 nextStateSPaths = {- io `seq` -} j `seq` sp' `seq` [(j,sp')]
              in nextStateSPaths `seq` w `seq`
                 execDfa dfaTable w nextStateSPaths
         }
          
 
+execDfa2 :: IM.IntMap RE ->  DfaTable -> Word -> [(Int, SPath)] -> [(Int, SPath)] -- list is either singleton or null, since it is a DFA
+execDfa2 im dfaTable w' [] = []
+execDfa2 im dfaTable w' currStateSPaths = 
+  case S.uncons w' of
+    Nothing    -> currStateSPaths 
+    Just (l,w) -> 
+      let ((i,sp):_) = currStateSPaths
+          k               = my_hash i l
+      in case IM.lookup k dfaTable of 
+        { Nothing -> [] 
+        ; Just (j, f) ->
+             let sp' = sp `seq` f sp
+                 -- io  = logger (putStrLn (show (im IM.! i)) >> putStrLn (show sp) >> putStrLn (show (im IM.! j)) >> putStrLn (show sp') >> putStrLn "=================")
+                 nextStateSPaths = {- io `seq` -} j `seq` sp' `seq` [(j,sp')]
+             in nextStateSPaths `seq` w `seq`
+                execDfa2 im dfaTable w nextStateSPaths
+        }
+
+
+
+
+match :: [(RE,SPath)] -> String -> [(RE,SPath)]
+match [(r,sp)] (c:cs) = case deriv r c of
+  { (r',f) -> let (r'',f') = simp r'
+              in 
+                 match [(r', f sp)] cs
+  }
+match [(r,sp)] [] = [(r,sp)]
+
+match2 :: [(RE,SPath)] -> String -> [(RE,SPath)]
+match2 [(r,sp)] (c:cs) = case deriv r c of
+  { (r',f) -> let (r'',f') = simp r'
+              in match2 [(r'', (f'. f) sp)] cs
+  }
+match2 [(r,sp)] [] = [(r,sp)]
 
 
 retrieveEmpty :: RE -> SPath -> Path
@@ -385,10 +421,10 @@ execPatMatch (dfa, p, im) w =
           -- io   = logger (putStrLn (show i))          
           path = {- io `seq`-}  retrieveEmpty r' sp
           r    = strip p
-          io   = logger (putStrLn (show path) >> putStrLn (show sp) >> putStrLn (show r'))
+          -- io   = logger (putStrLn (show path) >> putStrLn (show sp) >> putStrLn (show r'))
           parseTree = decode r path
           -- io = logger (putStrLn (show path) >> putStrLn (show parseTree) >> putStrLn (show p))
-          (env, _)  = io `seq` extractSR p r parseTree 0 
+          (env, _)  = {- io `seq` -} extractSR p r parseTree 0 
       in Just env
     }
      
@@ -530,3 +566,17 @@ r = choice [Seq (choice [ChoiceInt [Seq (choice [choice [Phi,ChoiceInt [Seq Phi 
 sp = SChoice [] [SPair [] (SChoice [] [SChoice [] [SPair [] (SChoice [] [SChoice [] [SPhi,SChoice [] [SPair [] SPhi (SL []),SEps []]]]) (SChoice [] [SChoice [] [SPair [] (SPair [] (SL []) (SL [])) (SL []),SL []]])                          
                                                   ,SChoice [0] [SChoice [] [SPair [] (SPair [] (SEps []) (SL [])) (SL []),SPhi]]]]) 
                  (SChoice [] [SChoice [] [SPair [] (SL []) (SL []),SL []]])]
+
+
+-- (A|AB)(BB|B)
+
+pp1 = PVar 1 [] (PE [r1])
+
+r1 =  Seq (choice [L 'A', (Seq (L 'A') (L 'B'))]) (choice [(Seq (L 'B') (L 'B')), L 'B']) 
+
+pp2 = PVar 1 [] (PE [r2])
+
+r2 = Seq (choice [L 'A', Empty]) (choice [Empty, L 'A'])
+  
+  
+-- A?A?  
