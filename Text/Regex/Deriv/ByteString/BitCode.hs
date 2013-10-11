@@ -128,77 +128,115 @@ deriv Empty l = (Phi, \_ -> SPhi)
 deriv (L l') l
   | l == l'  = (Empty, \(SL p) -> (SEps p))
   | otherwise = (Phi, \_ -> SPhi)
-deriv (Choice [r1,r2] gf) l = let (r1',f1) = deriv r1 l
-                                  (r2',f2) = deriv r2 l
-                              in (Choice [r1',r2'] gf, \(SChoice p [sp1,sp2]) -> SChoice p [(f1 sp1),(f2 sp2)])
-deriv (Choice [r] gf) l = let (r',f) = deriv r l                                  
-                          in (Choice [r'] gf, \(SChoice p [sp]) -> SChoice p [(f sp)])
-deriv (ChoiceInt [r1,r2]) l = let (r1',f1) = deriv r1 l
-                                  (r2',f2) = deriv r2 l
-                              in (ChoiceInt [r1', r2'], \(SChoice p [sp1,sp2]) -> SChoice p [(f1 sp1),(f2 sp2)])
-deriv (Seq r1 r2) l = let (r1', f1) = deriv r1 l
-                          (r2', f2) = deriv r2 l
+deriv (Choice [r1,r2] gf) l = let (r1',!f1) = deriv r1 l
+                                  (r2',!f2) = deriv r2 l
+                              in r1' `seq` r2' `seq` (Choice [r1',r2'] gf, \(SChoice !p [!sp1,!sp2]) -> 
+                                                       let !sp1' = f1 sp1 
+                                                           !sp2' = f2 sp2
+                                                       in SChoice p [sp1',sp2'])
+deriv (Choice [r] gf) l = let (r',!f) = deriv r l                                  
+                          in r' `seq` (Choice [r'] gf, \(SChoice !p [!sp]) ->  
+                                        let !sp' = f sp 
+                                        in SChoice p [sp'])
+deriv (ChoiceInt [r1,r2]) l = let (r1',!f1) = deriv r1 l
+                                  (r2',!f2) = deriv r2 l
+                              in r1' `seq` r2' `seq` (ChoiceInt [r1', r2'], \(SChoice !p [!sp1,!sp2]) -> 
+                                                       let !sp1' = f1 sp1
+                                                           !sp2' = f2 sp2 
+                                                       in SChoice p [sp1', sp2'])
+deriv (Seq r1 r2) l = let (r1', !f1) = deriv r1 l
+                          (r2', !f2) = deriv r2 l
                           f3 = mkEmpty r1 
-                      in if nullable r1
-                         then (ChoiceInt [(Seq r1' r2), r2'], (\(SPair p sp1 sp2) -> SChoice emptyP [(SPair p (f1 sp1) sp2), (prefix (p `appP` (f3 sp1)) (f2 sp2))]))
-                         else (Seq r1' r2, (\(SPair p sp1 sp2) -> SPair p (f1 sp1) sp2))
+                      in r1' `seq` r2' `seq` if nullable r1
+                         then (ChoiceInt [(Seq r1' r2), r2'], (\(SPair !p !sp1 !sp2) -> 
+                                                                let !sp1' = f1 sp1
+                                                                    !sp2' = f2 sp2
+                                                                    !sp1'' = f3 sp1
+                                                                    !sp' = prefix (p `appP` sp1'') sp2'
+                                                                in SChoice emptyP [(SPair p sp1' sp2), sp' ]))
+                         else (Seq r1' r2, (\(SPair !p !sp1 !sp2) -> 
+                                             let !sp1' = f1 sp1
+                                             in SPair p sp1' sp2))
 deriv (Star r gf) l = let (r', f) = deriv r l 
-                   in (Seq r' (Star r gf), \(SStar p sp) -> SPair (p `appP` [0]) (f sp) (SStar emptyP sp)) -- todo check
+                   in r' `seq` (Seq r' (Star r gf), \(SStar !p !sp) -> 
+                                 let !sp' = f sp
+                                     !p' = (p `appP` [0])
+                                  in SPair p' sp' (SStar emptyP sp)) -- todo check
 -- deriv r l = error (show r)                      
                       
                       
 simp :: RE -> (RE, SPath -> SPath)                      
 simp (Seq Empty r)
   | isPhi r = (Phi, \sp ->SPhi)
-  | otherwise = (r, \(SPair p1 (SEps p2) sp2) -> prefix (p1 `appP` p2) sp2)
+  | otherwise = (r, \(SPair !p1 (SEps !p2) !sp2) -> 
+                  let !p12 = p1 `appP` p2
+                  in prefix p12 sp2)
 simp (Seq r1 r2)                 
   | isPhi r1 || isPhi r2 = (Phi, \sp -> SPhi)
-  | otherwise = let (r1', f1) = simp r1 
-                    (r2', f2) = simp r2
-                in (Seq r1' r2', \(SPair p sp1 sp2) -> SPair p (f1 sp1) (f2 sp2))
+  | otherwise = let (r1', !f1) = simp r1 
+                    (r2', !f2) = simp r2
+                in r1' `seq` r2' `seq` (Seq r1' r2', \(SPair !p !sp1 !sp2) -> 
+                                         let !sp1' = f1 sp1
+                                             !sp2' = f2 sp2 
+                                         in SPair p sp1' sp2')
 simp (Choice [(Choice [r1,r2] gf2), r3] gf1) =  -- (r1+r2)+r3 => (r1+(  push all the path info to the options under the choice
-  (ChoiceInt [r1, ChoiceInt [r2,r3]], \(SChoice p1 [SChoice p2 [sp1, sp2], sp3]) ->
-    SChoice emptyP [ prefix (p1 `appP` p2 `appP` [0,0]) sp1
-                   , SChoice emptyP [ prefix (p1 `appP` p2 `appP` [0,1]) sp2
-                                    , prefix (p1 `appP` [1]) sp3]])
+  (ChoiceInt [r1, ChoiceInt [r2,r3]], \(SChoice !p1 [SChoice !p2 [!sp1, !sp2], !sp3]) ->
+    let !p' = p1 `appP` p2 `appP` [0,0]
+        !sp1' =  prefix p' sp1
+        !p'' = p1 `appP` p2 `appP` [0,1]
+        !sp2' = prefix p'' sp2
+        !p''' = p1 `appP` [1]
+        !sp3' = prefix p''' sp3
+    in SChoice emptyP [ sp1', SChoice emptyP [ sp2', sp3']])
 simp (Choice [r1,r2] gf) 
-  | r1 == r2 = (r1, \(SChoice p [sp1,sp2]) -> prefix (p `appP` [0]) sp1)
-  | isPhi r1 = (r2, \(SChoice p [sp1,sp2]) -> prefix (p `appP` [1]) sp2)
-  | isPhi r2 = (r1, \(SChoice p [sp1,sp2]) -> prefix (p `appP` [0]) sp1)
-  | otherwise = let (r1',f1) = simp r1
-                    (r2',f2) = simp r2
-                in (Choice [r1',r2'] gf, \(SChoice p [sp1,sp2]) -> 
-                     SChoice p [f1 sp1, f2 sp2])
+  | r1 == r2 = (r1, \(SChoice !p [!sp1,!sp2]) -> let !p' = (p `appP` [0]) in prefix p' sp1)
+  | isPhi r1 = (r2, \(SChoice !p [!sp1,!sp2]) -> let !p' = (p `appP` [1]) in prefix p' sp2)
+  | isPhi r2 = (r1, \(SChoice !p [!sp1,!sp2]) -> let !p' = (p `appP` [0]) in prefix p' sp1)
+  | otherwise = let (r1',!f1) = simp r1
+                    (r2',!f2) = simp r2
+                in r1' `seq` r2' `seq` (Choice [r1',r2'] gf, \(SChoice !p [!sp1,!sp2]) -> 
+                                         let !sp1' = f1 sp1
+                                             !sp2' = f2 sp2 
+                                         in SChoice p [sp1', sp2'])
 simp (ChoiceInt [ChoiceInt [r1,r2], r3]) =    
-  (ChoiceInt [r1, ChoiceInt [r2,r3]], \(SChoice p1 [SChoice p2 [sp1, sp2], sp3]) ->
-    SChoice emptyP [prefix (p1 `appP` p2) sp1, SChoice emptyP [prefix (p1 `appP` p2) sp2, prefix p1 sp3]])
+  (ChoiceInt [r1, ChoiceInt [r2,r3]], \(SChoice !p1 [SChoice !p2 [!sp1, !sp2], !sp3]) ->
+    let 
+      !p12 = (p1 `appP` p2)
+      !sp1' = prefix p12 sp1  
+      !sp2' = prefix p12 sp2
+      !sp3' = prefix p1 sp3
+    in SChoice emptyP [sp1', SChoice emptyP [sp2', sp3']])
 simp (ChoiceInt [r1,r2]) 
-  | r1 == r2 = (r1, \(SChoice p [sp1,sp2]) -> prefix p sp1)
-  | isPhi r1 = (r2, \(SChoice p [sp1,sp2]) -> prefix p sp2)
-  | isPhi r2 = (r1, \(SChoice p [sp1,sp2]) -> prefix p sp1)
-  | otherwise = let (r1',f1) = simp r1
-                    (r2',f2) = simp r2
-                in (ChoiceInt [r1',r2'], \(SChoice p [sp1,sp2]) -> 
-                     SChoice p [f1 sp1, f2 sp2])
-simp (Star Empty gf) = (Empty, \(SStar p1 (SEps p2)) -> SEps (p1 `appP` p2 `appP` [1])) -- how likely this will be applied when p1 and p2 are non-empty paths?
+  | r1 == r2 = (r1, \(SChoice !p [!sp1,!sp2]) -> prefix p sp1)
+  | isPhi r1 = (r2, \(SChoice !p [!sp1,!sp2]) -> prefix p sp2)
+  | isPhi r2 = (r1, \(SChoice !p [!sp1,!sp2]) -> prefix p sp1)
+  | otherwise = let (r1',!f1) = simp r1
+                    (r2',!f2) = simp r2
+                in r1' `seq` r2' `seq` (ChoiceInt [r1',r2'], \(SChoice !p [!sp1,!sp2]) -> 
+                                         let !sp1' = f1 sp1
+                                             !sp2' = f2 sp2
+                                         in SChoice p [sp1', sp2'])
+simp (Star Empty gf) = (Empty, \(SStar !p1 (SEps !p2)) -> 
+                         let !p =  (p1 `appP` p2 `appP` [1])
+                         in SEps p) -- how likely this will be applied when p1 and p2 are non-empty paths?
 -- r** ==> r*
 -- tricky, because r* path p, would need to be embedded into
 --  0 p 1
 -- That is, the outer Kleene star performs a single iteration
 -- I'm quite sure we can do without this optimization.
 -- simp (Star (Star r gf2) gf1) = (Star r gf1, \(SStar p1 (SStar p2 sp)) -> SStar (p1 `appP` p2) sp)
-simp (Star r gf) | isPhi r = (Empty, \(SStar p sp) -> SEps (p `appP` [1]))
-                 | otherwise = let (r', f) = simp r
-                               in (Star r' gf, \(SStar p sp) -> SStar p (f sp))
-simp (Choice [r] gf) = let (r',f) = simp r                               
-                       in (Choice [r'] gf, \(SChoice p [sp]) -> SChoice p [(f sp)])
+simp (Star r gf) | isPhi r = (Empty, \(SStar !p !sp) -> let !p' = (p `appP` [1]) in  SEps p' )
+                 | otherwise = let (r', !f) = simp r
+                               in r' `seq` (Star r' gf, \(SStar !p !sp) -> let !sp' = f sp in SStar p sp')
+simp (Choice [r] gf) = let (r',!f) = simp r                               
+                       in r' `seq` (Choice [r'] gf, \(SChoice !p [!sp]) -> let !sp' = f sp in SChoice p [sp'])
                        -- in (r', \(SChoice p [sp]) -> prefix p $ f sp) 
 simp r = (r, \sp -> sp)                               
                                
          
 simpFix :: RE -> (RE, SPath -> SPath)          
-simpFix r = let (r', f) = simp r           
-            in if r == r' 
+simpFix r = let (r', !f) = simp r           
+            in r' `seq` if r == r' 
                then (r, \sp -> sp)
                else let (r'', f') = simpFix r'
                     in (r'', f' . f)
@@ -213,13 +251,14 @@ builder :: [Char]
 builder sig acc_delta dict max_id curr_res           
   | null curr_res = (acc_delta, dict)
   | otherwise     = 
-    let new_delta = [ (r,l,r'',  f' . f ) | r <- curr_res, l <- sig, let (r',f) = deriv r l, let (r'',f') = simp r' ] 
-        new_res   = nub [ r' | (r,l,r',f) <- new_delta, not (r' `M.member` dict) ]
-        (dict', max_id') = foldl' (\(d,id) r -> 
-                                    let io = logger (putStrLn $show  (r,id+1))
-                                    in {- io `seq` -} (M.insert r (id+1) d, id+1)) (dict, max_id) new_res
-        acc_delta_next = acc_delta ++ (map (\(r,l,r',f) -> (getId dict' r, l, getId dict' r', f)) new_delta)
-    in builder sig acc_delta_next dict' max_id' new_res
+    let new_delta = sig `seq` curr_res `seq` [ r'' `seq` r `seq` g `seq` l `seq` (r,l,r'',  g) | r <- curr_res, l <- sig, let (r',f) = deriv r l, let (r'',f') = r' `seq` simp r', let g = f' . f] 
+        new_res   = new_delta `seq` dict `seq` nub [ r' | (r,l,r',f) <- new_delta, not (r' `M.member` dict) ]
+        (dict', max_id') = new_delta `seq` dict `seq`
+          foldl' (\(d,id) r -> 
+                   let io = logger (putStrLn $show  (r,id+1))
+                   in {- io `seq` -} (M.insert r (id+1) d, id+1)) (dict, max_id) new_res
+        acc_delta_next = new_delta `seq` acc_delta ++ (map (\(r,l,r',f) -> (getId dict' r, l, getId dict' r', f)) new_delta)
+    in  dict' `seq` max_id' `seq` new_res `seq` builder sig acc_delta_next dict' max_id' new_res
       where getId :: M.Map RE Int -> RE -> Int
             getId m r = case M.lookup r m of
               { Just i -> i
@@ -247,11 +286,11 @@ buildDfaTable :: RE -> (DfaTable, IM.IntMap RE) -- the dfa table and the id-to-r
 buildDfaTable r = 
   let sig = sigmaRE r
       init_dict = M.insert r 0 M.empty
-      (delta, mapping) = builder sig [] init_dict 0 [r]
-      table = IM.fromList (map (\(s,c,d,f) -> (my_hash s c, (d,f))) delta)
-      r_mapping = IM.fromList (map (\(x,y) -> (y,x)) (M.toList mapping))
+      (delta, mapping) = sig `seq` init_dict `seq` builder sig [] init_dict 0 [r]
+      table = delta`seq` IM.fromList (map (\(s,c,d,f) -> (my_hash s c, (d,f))) delta)
+      r_mapping = mapping `seq` IM.fromList (map (\(x,y) -> (y,x)) (M.toList mapping))
       -- io = logger (mapM_ (\x -> putStrLn (show x)) (M.toList mapping))
-  in (table,r_mapping)
+  in table`seq` r_mapping `seq` (table,r_mapping)
      
 type Word = S.ByteString
      
@@ -413,18 +452,18 @@ type Env = [(Int,Range)]
 
 execPatMatch :: (DfaTable, Pat, IM.IntMap RE) -> Word -> Maybe Env
 execPatMatch (dfa, p, im) w = 
-  let res = execDfa dfa w [(0, mkSPath (strip p))]
+  let res = dfa `seq` p `seq` im `seq` execDfa dfa w [(0, mkSPath (strip p))]
   in case res of 
     { [] -> Nothing
     ; [ (i, sp) ] -> 
       let r'   = im IM.! i
           -- io   = logger (putStrLn (show i))          
-          path = {- io `seq`-}  retrieveEmpty r' sp
-          r    = strip p
+          path = {- io `seq`-} r' `seq` sp `seq` retrieveEmpty r' sp
+          r    = p `seq` strip p
           -- io   = logger (putStrLn (show path) >> putStrLn (show sp) >> putStrLn (show r'))
-          parseTree = decode r path
+          parseTree = path `seq` decode r path
           -- io = logger (putStrLn (show path) >> putStrLn (show parseTree) >> putStrLn (show p))
-          (env, _)  = {- io `seq` -} extractSR p r parseTree 0 
+          (env, _)  = {- io `seq` -} parseTree `seq` extractSR p r parseTree 0 
       in Just env
     }
      
