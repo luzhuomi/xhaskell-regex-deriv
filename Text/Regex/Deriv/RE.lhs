@@ -22,16 +22,19 @@
 >  | Star RE GFlag -- ^ a kleene's star exp 'r*'
 >  | Any           -- ^ .
 >  | Not [Char]    -- ^ excluding characters e.g. [^abc]
+>   deriving Show
 
 > -- | the eq instance
 > instance Eq RE where
 >     (==) Empty Empty = True
 >     (==) (L x) (L y) = x == y
 >     (==) (Choice rs1 g1) (Choice rs2 g2) = (g1 == g2) && (rs2 == rs1) 
+>     (==) (ChoiceInt rs1) (ChoiceInt rs2) = (rs2 == rs1) 
 >     (==) (Seq r1 r2) (Seq r3 r4) = (r1 == r3) && (r2 == r4)
 >     (==) (Star r1 g1) (Star r2 g2) = g1 == g2 && r1 == r2 
 >     (==) Any Any = True
 >     (==) (Not cs) (Not cs') = cs == cs' 
+>     (==) Phi Phi = True
 >     (==) _ _ = False
 
 
@@ -39,6 +42,15 @@
 >     compare Empty Empty = {-# SCC "compare0" #-} EQ
 >     compare (L x) (L y) = {-# SCC "compare1" #-} compare x y
 >     compare (Choice rs1 _) (Choice rs2 _) =  
+>         let l1 = length rs1   
+>             l2 = length rs2
+>             -- rs1' = reverse rs1
+>             -- rs2' = reverse rs2
+>         in if l1 == l2
+>            then
+>               {-# SCC "compare2" #-} compare rs1 rs2
+>            else compare l1 l2 
+>     compare (ChoiceInt rs1) (ChoiceInt rs2) =  
 >         let l1 = length rs1   
 >             l2 = length rs2
 >             -- rs1' = reverse rs1
@@ -63,18 +75,23 @@
 >            assignInt (Star _ _) = 4
 >            assignInt Any = 5
 >            assignInt (Not _) = 6
+>            assignInt (ChoiceInt _) = 7
+>            assignInt Phi = 8                                                                              
 
 
+> {-
 > -- | A pretty printing function for regular expression
 > instance Show RE where
 >     show Phi = "{}"
 >     show Empty = "<>"
 >     show (L c) = show c
 >     show (Choice rs g) = "(" ++ show rs ++ ")" ++ show g
+>     show (ChoiceInt rs) = "(i:" ++ show rs ++ ":i)"
 >     show (Seq r1 r2) = "<" ++ show r1 ++ "," ++ show r2 ++ ">"
 >     show (Star r g) = show r ++ "*" ++ show g
 >     show Any = "."
 >     show (Not cs) = "[^" ++ cs ++ "]"
+> -}
 
 > instance IsGreedy RE where
 >     isGreedy Phi = True
@@ -121,6 +138,7 @@
 >   posEpsilon Phi = False
 >   posEpsilon Empty = True
 >   posEpsilon (Choice rs g) = any posEpsilon rs
+>   posEpsilon (ChoiceInt rs) = any posEpsilon rs
 >   posEpsilon (Seq r1 r2) = (posEpsilon r1) && (posEpsilon r2)
 >   posEpsilon (Star r g) = True
 >   posEpsilon (L _) = False
@@ -145,6 +163,8 @@
 >   isPhi Empty = False
 >   isPhi (Choice [] _) = True
 >   isPhi (Choice rs g) = all isPhi rs
+>   isPhi (ChoiceInt []) = True
+>   isPhi (ChoiceInt rs) = all isPhi rs
 >   isPhi (Seq r1 r2) = (isPhi r1) || (isPhi r2)
 >   isPhi (Star r g) = False
 >   isPhi (L _) = False

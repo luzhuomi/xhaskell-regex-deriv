@@ -27,7 +27,7 @@
 >   | PStar Pat GFlag                   -- ^ star pattern 
 >   | PPlus Pat Pat                     -- ^ plus pattern, it is used internally to indicate that it is unrolled from a PStar
 >   | PEmpty Pat                        -- ^ empty pattern, it is used intermally to indicate that mkEmpty function has been applied.
-
+>   deriving Show      
 
 > {-| The Eq instance for Pat data type
 >     NOTE: We ignore the 'consumed word' when comparing patterns
@@ -58,8 +58,11 @@
 >     pretty (PStar p g) = (pretty p) ++ "*" ++ (show g)
 >     pretty (PEmpty p) = "[" ++ pretty p ++ "]"
 
+> {-
 > instance Show Pat where
 >     show pat = pretty pat
+> -}
+
 
 > instance Key Pat where
 >     hash (PVar x1 _ p1) = let y1 = head (hash x1) 
