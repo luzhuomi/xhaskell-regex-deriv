@@ -10,7 +10,7 @@ We do not break part the sub-pattern of the original reg, they are always groupe
     BangPatterns, 
     FlexibleInstances, TypeSynonymInstances, FlexibleContexts #-} 
 
-module Text.Regex.Deriv.ByteString.BitCode
+module Text.Regex.Deriv.ByteString.BitCodeDQ
        ( Regex
        , CompOption(..)
        , ExecOption(..)
@@ -28,6 +28,7 @@ import qualified Data.HashTable.IO as H
 import qualified Data.Hashable as Ha
 
 
+import qualified Data.Dequeue as DQ
 import Data.List 
 import Data.Char (ord)
 import GHC.Int
@@ -54,7 +55,7 @@ import qualified Data.Bitstream as BS
 
 logger io = unsafePerformIO io
 
-
+{-
 type Path = [Int] 
 emptyP = []
 appP p1 p2 =  ((++) $!p1) $! p2
@@ -71,25 +72,48 @@ unconsP []     = Nothing
 
 nullP [] = True
 nullP (_:_) = False
-
-{-
-type Path = BS.Bitstream BS.Left
-
-emptyP = BS.empty
-appP p1 p2 = BS.append p1 p2
-zero = False
-one = True
-zeroP = BS.singleton zero
-oneP = BS.singleton one
-zeroZeroP = BS.pack [zero,zero]
-zeroOneP = BS.pack [zero,one]
-consP = BS.cons
-headP p = BS.head p
-unconsP p = if BS.null p 
-            then Nothing
-            else Just (BS.head p, BS.tail p)
-nullP = BS.null
 -}
+
+type Path = DQ.BankersDequeue Int
+
+-- decompose the left path and cons them into the right
+rightApp :: Path -> Path -> Path 
+rightApp p1 p2 = case DQ.popBack p1 of
+  { (Just x, p1') -> rightApp p1' (DQ.pushFront p2 x)
+  ; (Nothing, _ ) -> p2
+  }
+
+-- decompose the right path and snoc them into the left
+leftApp :: Path -> Path -> Path
+leftApp p1 p2 = case DQ.popFront p2 of
+  { (Just x, p2') -> leftApp (DQ.pushBack p1 x) p2'
+  ; (Nothing, _ ) -> p1
+  }
+                 
+smartApp :: Path -> Path -> Path
+smartApp p1 p2 | DQ.length p1 > DQ.length p2 = leftApp p1 p2
+               | otherwise                   = rightApp p1 p2
+
+singleton :: Int -> Path
+singleton i = DQ.pushFront DQ.empty i
+
+
+emptyP = DQ.empty
+appP p1 p2 = smartApp p1 p2
+zero = 0
+one = 1
+zeroP = singleton zero
+oneP = singleton one
+zeroZeroP = DQ.fromList [zero,zero]
+zeroOneP = DQ.fromList [zero,one]
+consP = flip DQ.pushFront 
+headP p = case DQ.first p of { Just x -> x; _ -> error "headP is applied to an empty path." }
+unconsP p = case DQ.popFront p of
+  { (Nothing, _ ) -> Nothing
+  ; (Just x , p') -> Just (x, p')
+  }
+nullP = DQ.null
+
 
 data U where
   Nil :: U
@@ -286,7 +310,7 @@ builder :: [Char]
 builder sig acc_delta dict max_id curr_res           
   | null curr_res = (acc_delta, dict)
   | otherwise     = 
-    let new_delta = sig `seq` curr_res `seq` [ r'' `seq` r `seq` g `seq` l `seq` (r,l,r'',  g) | r <- curr_res, l <- sig, let (r',f) = deriv r l, let (r'',f') = r' `seq` simp r', let g = f' . f] 
+    let new_delta = sig `seq` curr_res `seq` [ r'' `seq` r `seq` g `seq` l `seq` (r,l,r'',  g) | r <- curr_res, l <- sig, let (r',f) = deriv r l, let (r'',f') = r' `seq` simpFix r', let g = f' . f] 
         new_res   = new_delta `seq` dict `seq` nub [ r' | (r,l,r',f) <- new_delta, not (r' `M.member` dict) ]
         (dict', max_id') = new_delta `seq` dict `seq`
           foldl' (\(d,id) r -> 
