@@ -1,5 +1,5 @@
 Name:                   regex-deriv
-Version:                0.0.3
+Version:                0.0.4
 License:                BSD3
 License-File:           LICENSE
 Copyright:              Copyright (c) 2010-2013, Kenny Zhuo Ming Lu and Martin Sulzmann
@@ -17,13 +17,12 @@ Cabal-Version:          >= 1.2.3
 flag base4
 
 library 
-  Build-Depends:        regex-base >= 0.93.1, parsec, mtl, containers, bytestring, deepseq, hashable, hashtables, bitstream, dequeue
+  Build-Depends:        regex-base >= 0.93.1, parsec, mtl, containers, bytestring, deepseq, hashable >= 1.2.0.5, hashtables, dequeue
   Build-Depends:	bitset, parallel
   Build-Depends:         base >= 4.0 && < 5.0, ghc-prim
   Exposed-Modules:       Text.Regex.Deriv.ByteString
                          Text.Regex.Deriv.ByteString.Posix
                          Text.Regex.Deriv.ByteString.BitCode
-                         Text.Regex.Deriv.ByteString.BitCodeDQ
                          Text.Regex.Deriv.Common 
                          Text.Regex.Deriv.Word
                          Text.Regex.Deriv.ExtPattern

@@ -140,12 +140,15 @@ The shapes of the input/output Pat and SBinder should be identical.
 
 
 > dPat0C :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)]
+> dPat0C p c =  dPat0 p c 
+> {- memoization
 > dPat0C p c = 
 >   case {-# SCC "dPat0C/lookupDCache" #-} lookupDCache p c of  
 >    { Nothing -> let r = {-# SCC "dPat0C/dPat0" #-} dPat0 p c 
 >                     io = r `seq` {-# SCC "dPat0C/insertDCache" #-} insertDCache p c r
 >                 in io `seq` r
 >    ; Just r -> r }  
+> -}
 
 > dPat0 :: Pat -> Char -> [(Pat, Int -> SBinder -> SBinder)] -- the result is always singleton or empty
 > dPat0 y@(PVar x w p) l = 
@@ -574,12 +577,15 @@ simplification
 
 
 > simpC :: Pat -> [(Pat, Int -> SBinder -> SBinder)]
+> simpC p = simp p 
+> {- memoization
 > simpC p = 
 >   case lookupSCache p of 
 >    { Nothing -> let r = simp p  
 >                     io = insertSCache p r
 >                 in io `seq` r
 >    ; Just r -> r }
+> -}
 
 invariance: input / outoput of Int -> SBinder -> SBinder agree with simp's Pat input/ output
 
