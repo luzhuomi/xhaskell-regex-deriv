@@ -4,6 +4,8 @@
 The POSIX matching policy is implemented by following the 'structure' of the reg-exp.
 The pattern is follow annotated. 
 We do not break part the sub-pattern of the original reg, they are always grouped under the same var pattern.
+
+-- '.' the any pattern is not supported due to the decoding of the bit-encoding does not store the literals, the literals need to be retrieved from the regex
 -}
 
 {-# LANGUAGE GADTs, MultiParamTypeClasses, FunctionalDependencies,
@@ -30,6 +32,7 @@ import qualified Data.Hashable as Ha
 
 import qualified Data.Dequeue as DQ
 import Data.List 
+import Data.Maybe
 import Data.Char (ord)
 import GHC.Int
 import GHC.Arr 
@@ -133,16 +136,19 @@ data SPath = SChoice Path [SPath]
            | SEps Path 
            | SPhi
            deriving Show
+                    
 
 -- build empty SPath from a RE
 mkSPath :: RE -> SPath 
 mkSPath Empty = SEps emptyP
 mkSPath (L c) = SL emptyP
+mkSPath Any = SL emptyP
 mkSPath (Choice [r1,r2] _) = SChoice emptyP [mkSPath r1, mkSPath r2]
 mkSPath (Choice [r] _) = SChoice emptyP [mkSPath r]
 mkSPath (Seq r1 r2) = SPair emptyP (mkSPath r1) (mkSPath r2)
 mkSPath (Star r _)  = SStar emptyP (mkSPath r)
 mkSPath Phi = SPhi
+mkSPath r = error ("mkSPath fail" ++ show r)
 
 mkEmpty :: RE -> SPath -> Path 
 mkEmpty Empty = (\x -> case x of { (SEps p) -> p })
@@ -164,7 +170,9 @@ mkEmpty (Seq r1 r2) =
   let f1 = mkEmpty r1 
       f2 = mkEmpty r2
   in (\ (SPair p sp1 sp2) -> p `appP` (f1 sp1) `appP` (f2 sp2))
-mkEmpty (Star r _) = (\(SStar p _) -> p `appP` oneP )
+mkEmpty (Star r _) = (\x -> case x of (SStar p _) -> p `appP` oneP 
+                                      _ -> error ("mkEmptyStar is applied to " ++ show x)
+                     )
 
 
 prefix :: Path -> SPath -> SPath
@@ -176,6 +184,8 @@ prefix b (SChoice p [sp1,sp2]) =
 prefix b (SChoice p [sp]) = let !bp = b `appP` p in SChoice bp $! [sp]
 prefix b (SPair p sp1 sp2) = let !bp = b `appP` p in SPair bp sp1  sp2
 prefix b (SStar p sp) = let !bp = b `appP` p in SStar bp sp
+prefix b SPhi = SPhi
+prefix b p = error $ "prefix error: b=" ++ (show b)  ++ " p=" ++ show p
 
 nullable = posEpsilon
   
@@ -221,7 +231,8 @@ deriv (Star r gf) l = let (r', f) = deriv r l
                                  let !sp' = f sp
                                      !p' = (p `appP` zeroP)
                                   in SPair p' sp' $! (SStar emptyP sp)) -- todo check
-deriv r l = error (show r)                      
+deriv Any _ = (Empty, \(SL p) -> (SEps p))                   
+deriv r l = error ("deriv failed: " ++ (show r) ++ "/" ++ (show l))
                       
                       
 simp :: RE -> (RE, SPath -> SPath)                      
@@ -251,6 +262,7 @@ simp (Choice [r1,r2] gf)
   | r1 == r2 = (r1, \(SChoice !p [!sp1,!sp2]) -> let !p' = (p `appP` zeroP) in prefix p' sp1)
   | isPhi r1 = (r2, \(SChoice !p [!sp1,!sp2]) -> let !p' = (p `appP` oneP) in prefix p' sp2)
   | isPhi r2 = (r1, \(SChoice !p [!sp1,!sp2]) -> let !p' = (p `appP` zeroP) in prefix p' sp1)
+  | isJust (simpChoice r1 [] r2) = fromJust (simpChoice r1 [] r2)
   | otherwise = let (r1',!f1) = simp r1
                     (r2',!f2) = simp r2
                 in r1' `seq` r2' `seq` (Choice [r1',r2'] gf, \(SChoice !p [!sp1,!sp2]) -> 
@@ -269,6 +281,7 @@ simp (ChoiceInt [r1,r2])
   | r1 == r2 = (r1, \(SChoice !p [!sp1,!sp2]) -> prefix p sp1)
   | isPhi r1 = (r2, \(SChoice !p [!sp1,!sp2]) -> prefix p sp2)
   | isPhi r2 = (r1, \(SChoice !p [!sp1,!sp2]) -> prefix p sp1)
+  | isJust (simpChoice r1 [] r2) = fromJust (simpChoice r1 [] r2)
   | otherwise = let (r1',!f1) = simp r1
                     (r2',!f2) = simp r2
                 in r1' `seq` r2' `seq` (ChoiceInt [r1',r2'], \(SChoice !p [!sp1,!sp2]) -> 
@@ -292,10 +305,75 @@ simp (Choice [r] gf) = let (r',!f) = simp r
                        -- in (r', \(SChoice p [sp]) -> prefix p $ f sp) 
 simp r = (r, \sp -> sp)                               
                                
+
+{-  simpChoice r1   (r2 +  ... + rn-1)    rn 
+   where r2 ... rn -1 = alts
+     case 1) r1 == rn  
+       simplified to r1 +  r2 ... rn-1
+       the proof terms coercing from  [| r1 +  r2 ... rn-1 + rn |] -> [| r1 +  r2 ... rn-1|]
+         \x -> case x of 
+           { SChoice p1 [sp1, [SChoice p2 [ ... SChoice pn-1 [spn-1, spn]]]] 
+              -> SChoice p1 [sp1, [SChoice p2 [ ... pn-1+[0] `prefix` spn-1 ]]]
+           }
+    case 2)  otherwise 
+      case rn = rn_a + rn_b
+        case 2a) r1 == rn_a
+         simplified to r1 + r2 ... rn-1 + rn_b
+         the proof terms coercing from  [| r1 +  r2 ... rn-1 + rn_a +rn_b |] -> [| r1 +  r2 ... rn-1+ rn_b |]
+         \x -> case x of 
+            { SChoice p1 [sp1, [SChoice p2 [ ... SChoice pn [spn_a, spn_b]]]] 
+              -> SChoice p1 [sp1, [SChoice p2 [ ... pn+[1] `prefix` spn_b]]]  
+            }
+        case 2b) otherwise 
+         simpChoice r1 + r2 ... rn_a + rn_b where alts = r2 ... rn_a
+     case rn =\= rn_a + rn_b 
+       Nothing
+-}
+simpChoice :: RE -> [RE] -> RE -> Maybe (RE, SPath -> SPath)
+simpChoice r1 alts rn 
+  | r1 == rn = Just (mkChoice (r1:alts) Greedy, -- fixme
+                     \v -> prefixNthChoiceLeft (length alts) v)
+  | otherwise = case rn of 
+    { Choice [rna,rnb] gf 
+      | r1 == rna -> 
+         Just (mkChoice ((r1:alts) ++ [rnb]) gf,
+               \v -> prefixNthChoiceRight (length alts + 1) v)
+    ; ChoiceInt [rna,rnb] 
+      | r1 == rna -> 
+         Just (mkChoiceInt ((r1:alts) ++ [rnb]) ,
+               \v -> prefixNthChoiceRight (length alts + 1) v)
+      | otherwise -> simpChoice r1 (alts ++ [rna]) rnb
+    ; _ -> Nothing 
+    }
+  where mkChoice [r1,r2] gf = Choice [r1,r2] gf
+        mkChoice (r:rs) gf  = Choice [r, mkChoice rs gf] gf
+        
+        mkChoiceInt [r1,r2] = ChoiceInt [r1,r2] 
+        mkChoiceInt (r:rs)  = ChoiceInt [r, mkChoiceInt rs] 
+        
+        
+prefixNthChoiceLeft :: Int -> SPath -> SPath
+{-
+prefixNthChoiceLeft 0 sp = sp
+prefixNthChoiceLeft 1 (SChoice p [sp1,sp2]) = (p `appP` zeroP) `prefix` sp1
+-}
+prefixNthChoiceLeft 0 (SChoice p [sp1,sp2]) = (p `appP` zeroP) `prefix` sp1
+prefixNthChoiceLeft n (SChoice p [sp1,sp2]) = SChoice p [sp1, prefixNthChoiceLeft (n-1) sp2]
+
+prefixNthChoiceRight :: Int -> SPath -> SPath
+{- 
+prefixNthChoiceRight 0 sp = sp
+prefixNthChoiceRight 1 (SChoice p [sp1,sp2]) = (p `appP` oneP) `prefix` sp2
+-}
+prefixNthChoiceRight 0 (SChoice p [sp1,sp2]) = (p `appP` oneP) `prefix` sp2
+prefixNthChoiceRight n (SChoice p [sp1,sp2]) = SChoice p [sp1, prefixNthChoiceRight (n-1) sp2]
+
+                           
          
 simpFix :: RE -> (RE, SPath -> SPath)          
 simpFix r = let (r', !f) = simp r           
-            in r' `seq` if r == r' 
+                io = logger (print r >> print "======")
+            in {- io `seq` -} r' `seq` if r == r' 
                then (r, \sp -> sp)
                else let (r'', f') = simpFix r'
                     in (r'', f' . f)
@@ -452,7 +530,7 @@ decode :: RE -> Path -> U
 decode r bs = let (u,p) = decode2 r bs
               in if nullP p 
                  then u
-                 else error "invalid bit coding"
+                 else error $ "invalid bit coding u=" ++ show u ++ " p=" ++ show p
 
 -- assume strip p = r
 extract :: Pat -> RE -> U -> [(Int,Word)]
@@ -508,10 +586,43 @@ flatten' (List us) = concatMap flatten' us
 
 compilePat :: Pat -> (DfaTable, Pat, IM.IntMap RE)
 compilePat p = 
-  let r = strip p 
+  let p' = normChoice p
+      r = strip p'
       (dfa,im) = buildDfaTable r
-  in (dfa, p, im)
+  in (dfa, p', im)
      
+
+-- normalize a+b+c to a+(b+c)                    
+
+class NormChoice a where 
+  normChoice :: a -> a 
+  
+  
+instance NormChoice RE where  
+  normChoice Empty = Empty
+  normChoice (L c) = L c
+  normChoice (Seq r1 r2) = Seq (normChoice r1) (normChoice r2)
+  normChoice (Star r gf) = Star (normChoice r) gf
+  normChoice Phi = Phi
+  normChoice (Choice [r] gf) = Choice [normChoice r] gf
+  normChoice (Choice [r1,r2] gf) = Choice [normChoice r1,normChoice r2] gf
+  normChoice (Choice (r:rs) gf) = Choice [normChoice r, normChoice (Choice rs gf)] gf
+  normChoice Any = Any
+  
+instance NormChoice Pat where  
+  normChoice (PVar i rng p) = PVar i rng (normChoice p)
+  normChoice (PE rs)        = PE (map normChoice rs)
+  normChoice (PPair p1 p2)   = PPair (normChoice p1) (normChoice p2)
+  normChoice (PChoice [p] gf) = PChoice [normChoice p] gf
+  normChoice (PChoice [p1,p2] gf) = PChoice [normChoice p1, normChoice p2] gf
+  normChoice (PChoice (p:ps) gf) = PChoice [normChoice p, normChoice (PChoice ps gf)] gf
+  normChoice (PPlus p1 p2) = PPlus (normChoice p1) (normChoice p2)
+  normChoice (PStar p gf) = PStar (normChoice p) gf
+  normChoice (PEmpty p) = PEmpty (normChoice p)
+
+
+
+
 
 type Env = [(Int,Range)]
 

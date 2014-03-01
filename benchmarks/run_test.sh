@@ -373,3 +373,21 @@ echo "" > data/empty
 
 
 
+# case 23 
+
+rm results/DERIV23.tsv
+./Timer ./DERIV "^[a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*([,;]\s*[a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*)*$" results/DERIV23.tsv data/emails1 data/emails2 data/emails3 data/emails4 data/emails5 data/emails6 data/emails7 data/emails8 data/emails9 data/emails10 
+
+rm results/TDFA23.tsv
+./Timer ./TDFA "^[a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*([,;]\s*[a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*)*$" results/TDFA23.tsv data/emails1 data/emails2 data/emails3 data/emails4 data/emails5 data/emails6 data/emails7 data/emails8 data/emails9 data/emails10 
+
+rm results/re2_23.tsv
+./Timer ./re2_8p "^[a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*([,;][a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*)*$" results/re2_23.tsv data/emails1 data/emails2 data/emails3 data/emails4 data/emails5 data/emails6 data/emails7 data/emails9 data/emails9 data/emails10 
+
+
+rm results/HSPOSIX23.tsv
+./Timer ./HSPOSIX "^[a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*([,;]\s*[a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*)*$" results/HSPOSIX23.tsv data/emails1 data/emails2 data/emails3 data/emails4 data/emails5 data/emails6 data/emails7 data/emails8 data/emails9 data/emails10 
+
+
+rm results/BitCode23.tsv
+./Timer ./BitCode "^[a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*([,;]\s*[a-z]+([-+.][a-z]+)*@[a-z]+([-.][a-z]+)*\.[a-z]+([-.][a-z]+)*)*$" results/BitCode23.tsv data/emails1 data/emails2 data/emails3 data/emails4 data/emails5 data/emails6 data/emails7 data/emails8 data/emails9 data/emails10 

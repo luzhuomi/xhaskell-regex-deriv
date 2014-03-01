@@ -25,3 +25,6 @@ for i in 10 15 20 25 30; do ./gen2 "a" ${i} > data/a_s_${i}; done
 for i in 17 18 19 20 21; do ./gen3 $i > data/aabc${i} ; done
 
 echo "X12Y" > data/x12y
+
+
+for i in 1 2 3 4 5 6 7 8 9 10; do ./genEmail ${i}000 > data/emails${i}; done

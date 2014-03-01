@@ -78,10 +78,10 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 >                else [r2]
 >   | b1 > b2 = [r1]
 >   | otherwise = [r2]
-
-> {-
 > combineRange [] rs2 = rs2
 > combineRange rs1 [] = rs1
+
+> {-
 > combineRange ((r1@(Range b1 e1)):rs1) ((r2@(Range b2 e2)):rs2) 
 >   | b1 == b2 && e1 >= e2 = -- keeping all the discontinuated binding of p* 
 >                            let rs = combineRange rs1 rs2
