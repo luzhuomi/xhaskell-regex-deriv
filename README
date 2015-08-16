@@ -1,3 +1,7 @@
+== Dequeue == 
+Dequeue on Hackage does not compile in GHC 7.10.2. To get around it, please manually compile the one from here.
+https://github.com/oconnore/dequeue
+
 == Dependency == 
 Text.Regex.Base
 
