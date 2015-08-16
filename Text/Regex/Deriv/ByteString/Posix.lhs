@@ -22,7 +22,7 @@ We do not break part the sub-pattern of the original reg, they are always groupe
 >     , regexec
 >     ) where 
 
-
+> import Prelude hiding (Word)
 > import System.IO.Unsafe
 > import Data.IORef
 > import qualified Data.HashTable.IO as H

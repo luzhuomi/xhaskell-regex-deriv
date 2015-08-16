@@ -24,6 +24,7 @@ module Text.Regex.Deriv.ByteString.BitCode
        ) where 
 
 
+import Prelude hiding (Word)
 import System.IO.Unsafe
 import Data.IORef
 import qualified Data.HashTable.IO as H
